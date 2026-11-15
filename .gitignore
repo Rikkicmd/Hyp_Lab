@@ -1,0 +1,7 @@
+# Lab runtime artefacts never belong in the repo
+*.vhd
+*.vhdx
+*.avhdx
+*.iso
+*.log
+Logs/

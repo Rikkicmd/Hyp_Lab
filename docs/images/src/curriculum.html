@@ -1,0 +1,56 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>HVLAB curriculum</title>
+<style>
+  body{margin:0;background:#fff;font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;color:#0f172a}
+  #d{width:1240px;padding:32px 36px 30px;box-sizing:border-box;background:#fff}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{font-size:13px;color:#475569;margin-bottom:20px}
+  .rows{display:grid;gap:12px}
+  .row{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:stretch}
+  .lane{border-radius:10px;padding:10px 12px;font-weight:700;font-size:13px;color:#fff;display:flex;flex-direction:column;justify-content:center}
+  .lane span{font-weight:400;font-size:11.5px;opacity:.92}
+  .mods{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .mod{border:1px solid #cbd5e1;border-radius:10px;padding:9px 11px;background:#fff}
+  .mod b{display:block;font-size:13px}
+  .mod i{font-style:normal;font-size:11.5px;color:#475569}
+  .num{font-size:11px;font-weight:700;color:#64748b}
+  .a .lane{background:#3b82f6}.a .mod{border-left:4px solid #3b82f6}
+  .b .lane{background:#7c3aed}.b .mod{border-left:4px solid #7c3aed}
+  .c .lane{background:#10b981}.c .mod{border-left:4px solid #10b981}
+  .e .lane{background:#f59e0b}.e .mod{border-left:4px solid #f59e0b}
+  .f .lane{background:#dc2626}.f .mod{border-left:4px solid #dc2626}
+</style></head>
+<body><div id="d">
+  <h1>Curriculum: 17 modules from bare metal to break/fix</h1>
+  <div class="sub">Every module has concepts, a build step, hands-on exercises with hidden solutions, automated validation and review questions. Suggested pace: a 5-day bootcamp or one module per evening.</div>
+  <div class="rows">
+    <div class="row a"><div class="lane">Foundations<span>Day 1</span></div><div class="mods">
+      <div class="mod"><span class="num">M00</span><b>Orientation</b><i>Lab design, safety, workflow</i></div>
+      <div class="mod"><span class="num">M01</span><b>Host preparation</b><i>Requirements, role, nested virtualization</i></div>
+      <div class="mod"><span class="num">M02</span><b>Virtual networking</b><i>Switch types, NAT, VLANs, QoS, mirroring</i></div>
+      <div class="mod"><span class="num">M03</span><b>VMs, images & templates</b><i>Gen 2, VHDX, Sysprep, unattend</i></div>
+    </div></div>
+    <div class="row b"><div class="lane">Fabric<span>Day 2</span></div><div class="mods">
+      <div class="mod"><span class="num">M04</span><b>AD DS, DNS, DHCP</b><i>Identity for a virtualization fabric</i></div>
+      <div class="mod"><span class="num">M05</span><b>Production hosts</b><i>SET, live migration settings, KCD, RBAC</i></div>
+      <div class="mod"><span class="num">M06</span><b>Shared storage</b><i>iSCSI target, LUN masking, MPIO</i></div>
+      <div class="mod"><span class="num">M11</span><b>Storage Spaces Direct</b><i>Alternative HCI track</i></div>
+    </div></div>
+    <div class="row c"><div class="lane">Availability<span>Day 3</span></div><div class="mods">
+      <div class="mod"><span class="num">M07</span><b>Failover clustering</b><i>Quorum, CSV, placement, CAU</i></div>
+      <div class="mod"><span class="num">M08</span><b>VM mobility</b><i>Live, quick, storage, shared-nothing migration</i></div>
+      <div class="mod"><span class="num">M09</span><b>Hyper-V Replica</b><i>Test, planned and unplanned failover</i></div>
+      <div class="mod"><span class="num">M10</span><b>Checkpoints & backup</b><i>Production checkpoints, export, WSB, RCT</i></div>
+    </div></div>
+    <div class="row e"><div class="lane">Operations<span>Day 4</span></div><div class="mods">
+      <div class="mod"><span class="num">M12</span><b>Management tooling</b><i>WAC, Hyper-V Manager, FCM, SCVMM</i></div>
+      <div class="mod"><span class="num">M13</span><b>Security</b><i>vTPM, Shielded VMs/HGS, JEA, hardening</i></div>
+      <div class="mod"><span class="num">M14</span><b>Monitoring & capacity</b><i>Counters, metering, N+1 sizing</i></div>
+      <div class="mod" style="border-style:dashed"><span class="num">REF</span><b>Cheat sheet & design notes</b><i>Lab vs production decisions</i></div>
+    </div></div>
+    <div class="row f"><div class="lane">Mastery<span>Day 5</span></div><div class="mods" style="grid-template-columns:repeat(2,1fr)">
+      <div class="mod"><span class="num">M15</span><b>Troubleshooting (break/fix)</b><i>10 injected faults: DNS, time skew, iSCSI path, VLAN, quorum, replica…</i></div>
+      <div class="mod"><span class="num">M16</span><b>Capstone & teardown</b><i>Design, rebuild with changes, operate, defend, tear down</i></div>
+    </div></div>
+  </div>
+</div></body></html>

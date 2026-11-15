@@ -1,0 +1,108 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>HVLAB topology</title>
+<style>
+  body{margin:0;background:#fff;font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif}
+  .t{font-size:15px;font-weight:600;fill:#0f172a}
+  .s{font-size:12px;fill:#475569}
+  .h{font-size:20px;font-weight:700;fill:#0f172a}
+  .lbl{font-size:12px;font-weight:600}
+</style></head>
+<body>
+<svg id="d" width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#ffffff"/>
+  <text x="40" y="44" class="h">HVLAB architecture: one physical host, a complete Hyper-V datacenter</text>
+  <text x="40" y="68" class="s">Windows Server 2025 · Hyper-V · nested virtualization · about 40 GB RAM for the core lab</text>
+
+  <rect x="24" y="88" width="1232" height="610" rx="16" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="44" y="116" class="t">PHYSICAL HOST</text>
+  <text x="168" y="116" class="s">vEthernet (HVLAB-Mgmt) 10.10.0.1 is the default gateway for every lab VM</text>
+
+  <rect x="1040" y="98" width="196" height="38" rx="8" fill="#fff7ed" stroke="#fb923c"/>
+  <text x="1138" y="122" text-anchor="middle" class="lbl" fill="#9a3412">WinNAT → Internet</text>
+  <line x1="1138" y1="136" x2="1138" y2="150" stroke="#fb923c" stroke-width="2"/>
+
+  <rect x="44" y="150" width="1192" height="34" rx="8" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="60" y="172" class="lbl" fill="#1e3a8a">HVLAB-Mgmt · Internal switch · 10.10.0.0/24 · management, AD, client access, Replica</text>
+
+  <!-- DC01 -->
+  <line x1="125" y1="184" x2="125" y2="214" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="50" y="214" width="150" height="104" rx="10" fill="#fff" stroke="#cbd5e1"/>
+  <rect x="50" y="214" width="150" height="6" rx="3" fill="#7c3aed"/>
+  <text x="64" y="244" class="t">DC01</text><text x="64" y="262" class="s">10.10.0.10</text>
+  <text x="64" y="282" class="s">AD DS · DNS · DHCP</text><text x="64" y="300" class="s">Core · 2 vCPU · 2 GB</text>
+
+  <!-- MGMT01 -->
+  <line x1="289" y1="184" x2="289" y2="214" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="214" y="214" width="150" height="104" rx="10" fill="#fff" stroke="#cbd5e1"/>
+  <rect x="214" y="214" width="150" height="6" rx="3" fill="#0891b2"/>
+  <text x="228" y="244" class="t">MGMT01</text><text x="228" y="262" class="s">10.10.0.20</text>
+  <text x="228" y="282" class="s">WAC · RSAT · FCM</text><text x="228" y="300" class="s">Desktop · 2 vCPU · 4GB</text>
+
+  <!-- STOR01 -->
+  <line x1="453" y1="184" x2="453" y2="214" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="378" y="214" width="150" height="104" rx="10" fill="#fff" stroke="#cbd5e1"/>
+  <rect x="378" y="214" width="150" height="6" rx="3" fill="#ca8a04"/>
+  <text x="392" y="244" class="t">STOR01</text><text x="392" y="262" class="s">10.10.0.30 · 10.10.20.30</text>
+  <text x="392" y="282" class="s">iSCSI Target (SAN)</text><text x="392" y="300" class="s">Core · 200 GB data disk</text>
+
+  <!-- Cluster frame -->
+  <rect x="548" y="200" width="330" height="320" rx="14" fill="#ecfdf5" stroke="#10b981" stroke-width="1.5"/>
+
+  <line x1="636" y1="184" x2="636" y2="214" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="562" y="214" width="148" height="156" rx="10" fill="#fff" stroke="#cbd5e1"/>
+  <rect x="562" y="214" width="148" height="6" rx="3" fill="#16a34a"/>
+  <text x="576" y="244" class="t">HV01</text><text x="576" y="262" class="s">.0.11 · .20.11 · .30.11</text>
+  <text x="576" y="282" class="s">Nested Hyper-V</text><text x="576" y="300" class="s">4 vCPU · 12 GB static</text>
+  <text x="576" y="320" class="s">SETswitch · MPIO</text><text x="576" y="352" class="lbl" fill="#065f46">SHELL01 · WEB01</text>
+
+  <line x1="792" y1="184" x2="792" y2="214" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="718" y="214" width="148" height="156" rx="10" fill="#fff" stroke="#cbd5e1"/>
+  <rect x="718" y="214" width="148" height="6" rx="3" fill="#16a34a"/>
+  <text x="732" y="244" class="t">HV02</text><text x="732" y="262" class="s">.0.12 · .20.12 · .30.12</text>
+  <text x="732" y="282" class="s">Nested Hyper-V</text><text x="732" y="300" class="s">4 vCPU · 12 GB static</text>
+  <text x="732" y="320" class="s">SETswitch · MPIO</text><text x="732" y="352" class="lbl" fill="#065f46">SHELL02 · APP01</text>
+
+  <rect x="562" y="382" width="304" height="32" rx="8" fill="#d1fae5" stroke="#10b981"/>
+  <text x="714" y="403" text-anchor="middle" class="lbl" fill="#065f46">CSV01 · C:\ClusterStorage\CSV01</text>
+  <rect x="562" y="420" width="304" height="28" rx="8" fill="#fff" stroke="#10b981" stroke-dasharray="4 3"/>
+  <text x="714" y="439" text-anchor="middle" class="s">Witness Disk (1 GB LUN)</text>
+  <text x="562" y="478" class="t" fill="#065f46">HVCLU01 · 10.10.0.50</text>
+  <text x="562" y="500" class="s">Failover cluster · Replica Broker HVCLU01-RB .51</text>
+
+  <!-- HV03 -->
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker></defs>
+  <line x1="980" y1="184" x2="980" y2="214" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="900" y="214" width="160" height="156" rx="10" fill="#fff" stroke="#cbd5e1"/>
+  <rect x="900" y="214" width="160" height="6" rx="3" fill="#2563eb"/>
+  <text x="914" y="244" class="t">HV03</text><text x="914" y="262" class="s">10.10.0.13</text>
+  <text x="914" y="282" class="s">Standalone DR host</text><text x="914" y="300" class="s">4 vCPU · 8 GB static</text>
+  <text x="914" y="320" class="s">Replica server</text><text x="914" y="352" class="lbl" fill="#1d4ed8">SHELL01 (replica)</text>
+  <path d="M878 292 L896 292" stroke="#2563eb" stroke-width="2.5" marker-end="url(#a)"/>
+  <text x="980" y="396" text-anchor="middle" class="lbl" fill="#1d4ed8">Hyper-V Replica (HTTP 80)</text>
+  <text x="980" y="414" text-anchor="middle" class="s">every 30 s · 4 recovery points</text>
+
+  <!-- HGS01 -->
+  <line x1="1155" y1="184" x2="1155" y2="214" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4 3"/>
+  <rect x="1080" y="214" width="150" height="104" rx="10" fill="#fff" stroke="#cbd5e1" stroke-dasharray="5 4"/>
+  <rect x="1080" y="214" width="150" height="6" rx="3" fill="#dc2626"/>
+  <text x="1094" y="244" class="t">HGS01</text><text x="1094" y="262" class="s">10.10.0.40 · optional</text>
+  <text x="1094" y="282" class="s">Host Guardian Service</text><text x="1094" y="300" class="s">own forest hgs.internal</text>
+
+  <!-- Storage switch -->
+  <rect x="44" y="556" width="1192" height="34" rx="8" fill="#fef9c3" stroke="#ca8a04"/>
+  <text x="60" y="578" class="lbl" fill="#713f12">HVLAB-Storage · Private switch · 10.10.20.0/24 · iSCSI + MPIO</text>
+  <text x="1220" y="578" text-anchor="end" class="lbl" fill="#713f12">LUNs: CSV01 120 GB + witness 1 GB · not visible to the host</text>
+  <line x1="453" y1="318" x2="453" y2="556" stroke="#ca8a04" stroke-width="2"/>
+  <line x1="600" y1="520" x2="600" y2="556" stroke="#ca8a04" stroke-width="2"/>
+  <line x1="830" y1="520" x2="830" y2="556" stroke="#ca8a04" stroke-width="2"/>
+
+  <!-- Cluster switch -->
+  <rect x="44" y="612" width="1192" height="34" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="60" y="634" class="lbl" fill="#4c1d95">HVLAB-Cluster · Private switch · 10.10.30.0/24</text>
+  <text x="1220" y="634" text-anchor="end" class="lbl" fill="#4c1d95">heartbeat · CSV redirection · live migration</text>
+  <line x1="660" y1="520" x2="660" y2="612" stroke="#7c3aed" stroke-width="2"/>
+  <line x1="770" y1="520" x2="770" y2="612" stroke="#7c3aed" stroke-width="2"/>
+
+  <text x="44" y="680" class="s">Solid = core lab (scripts 00-11) · Dashed = optional (HGS01, Module 13) · The S2D track (Module 11) replaces the iSCSI LUNs with local disks pooled across HV01 and HV02</text>
+</svg>
+</body></html>

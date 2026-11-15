@@ -1,0 +1,61 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>HVLAB build pipeline</title>
+<style>
+  body{margin:0;background:#fff;font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;color:#0f172a}
+  #d{width:1240px;padding:32px 36px 28px;box-sizing:border-box;background:#fff}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{font-size:13px;color:#475569;margin-bottom:22px}
+  .phases{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .ph{border-radius:14px;padding:14px;border:1.5px solid}
+  .ph h2{font-size:14px;margin:0 0 2px;letter-spacing:.02em;text-transform:uppercase}
+  .ph .meta{font-size:12px;color:#475569;margin-bottom:12px}
+  .st{background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:9px 11px;margin-bottom:8px;display:grid;grid-template-columns:34px 1fr;gap:2px 8px;align-items:start}
+  .n{grid-row:span 2;font-weight:700;font-size:15px;border-radius:7px;text-align:center;padding:4px 0;color:#fff}
+  .f{font-family:Consolas,"Cascadia Mono",Menlo,monospace;font-size:12px;font-weight:600}
+  .w{font-size:12px;color:#475569}
+  .m{display:inline-block;font-size:10.5px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:4px;vertical-align:1px}
+  .p1{border-color:#3b82f6;background:#eff6ff}.p1 .n{background:#3b82f6}.p1 .m{background:#dbeafe;color:#1e3a8a}
+  .p2{border-color:#7c3aed;background:#f5f3ff}.p2 .n{background:#7c3aed}.p2 .m{background:#ede9fe;color:#4c1d95}
+  .p3{border-color:#10b981;background:#ecfdf5}.p3 .n{background:#10b981}.p3 .m{background:#d1fae5;color:#065f46}
+  .p4{border-color:#f59e0b;background:#fffbeb}.p4 .n{background:#f59e0b}.p4 .m{background:#fef3c7;color:#78350f}
+  .opt{border-style:dashed}
+  .foot{margin-top:18px;display:flex;gap:14px;flex-wrap:wrap}
+  .tool{flex:1;min-width:220px;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font-size:12px;color:#475569}
+  .tool b{color:#0f172a}
+</style></head>
+<body><div id="d">
+  <h1>Build pipeline: Deploy-Lab.ps1 runs these stages in order (resumable with -From / -To)</h1>
+  <div class="sub">Each stage is idempotent and maps to a training module (M). The first full build takes about 60-120 minutes, and the golden images are the slowest part.</div>
+  <div class="phases">
+    <div class="ph p1"><h2>1 · Host & images</h2><div class="meta">≈ 30-45 min · one host reboot</div>
+      <div class="st"><div class="n">00</div><div class="f">Test-HostReadiness<span class="m">M01</span></div><div class="w">CPU/SLAT, RAM, disk, ISO</div></div>
+      <div class="st"><div class="n">01</div><div class="f">Install-HostPrereqs<span class="m">M01</span></div><div class="w">Hyper-V role, RSAT, AV exclusions</div></div>
+      <div class="st"><div class="n">02</div><div class="f">New-LabNetwork<span class="m">M02</span></div><div class="w">3 vSwitches + WinNAT</div></div>
+      <div class="st"><div class="n">03</div><div class="f">New-GoldenImage<span class="m">M03</span></div><div class="w">ISO → Gen 2 parent VHDX (Core + Desktop)</div></div>
+    </div>
+    <div class="ph p2"><h2>2 · VMs & identity</h2><div class="meta">≈ 20-30 min</div>
+      <div class="st"><div class="n">04</div><div class="f">New-LabVMs<span class="m">M03</span></div><div class="w">Differencing disks, unattend, static IPs</div></div>
+      <div class="st"><div class="n">05</div><div class="f">Initialize-DomainController<span class="m">M04</span></div><div class="w">Forest, DNS zones, DHCP, OUs</div></div>
+      <div class="st"><div class="n">06</div><div class="f">Join-LabDomain<span class="m">M04</span></div><div class="w">Members into OUs</div></div>
+      <div class="st"><div class="n">07</div><div class="f">Install-NestedHyperV<span class="m">M05</span></div><div class="w">Hyper-V in guests, SET, live migration, KCD</div></div>
+    </div>
+    <div class="ph p3"><h2>3 · Cluster & DR</h2><div class="meta">≈ 15-25 min</div>
+      <div class="st"><div class="n">08</div><div class="f">New-IscsiStorage<span class="m">M06</span></div><div class="w">Target, LUNs, MPIO sessions</div></div>
+      <div class="st"><div class="n">09</div><div class="f">New-LabCluster<span class="m">M07</span></div><div class="w">Validate, quorum, CSV, network roles</div></div>
+      <div class="st"><div class="n">10</div><div class="f">New-ClusterWorkloads<span class="m">M07/08</span></div><div class="w">HA VMs, priority, anti-affinity</div></div>
+      <div class="st"><div class="n">11</div><div class="f">Enable-HyperVReplica<span class="m">M09</span></div><div class="w">Replica server + Broker</div></div>
+    </div>
+    <div class="ph p4"><h2>4 · Tracks & tools</h2><div class="meta">run when you reach the module</div>
+      <div class="st opt"><div class="n">12</div><div class="f">New-S2DCluster<span class="m">M11</span></div><div class="w">Alternative: Storage Spaces Direct</div></div>
+      <div class="st"><div class="n">13</div><div class="f">Install-ManagementTools<span class="m">M12</span></div><div class="w">RSAT + Windows Admin Center</div></div>
+      <div class="st opt"><div class="n">14</div><div class="f">New-HostGuardian<span class="m">M13</span></div><div class="w">Optional: HGS + vTPM demo</div></div>
+      <div class="st"><div class="n">99</div><div class="f">Remove-Lab<span class="m">M16</span></div><div class="w">Teardown (-KeepImages)</div></div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="tool"><b>Test-LabModule.ps1</b><br>PASS/FAIL checks per module, covering both the build and your exercises</div>
+    <div class="tool"><b>Invoke-LabCheckpoint.ps1</b><br>Lab-wide save and restore points (Baseline-Domain, Baseline-Cluster)</div>
+    <div class="tool"><b>Invoke-LabFault.ps1</b><br>10 break/fix scenarios with tickets, hints and repair</div>
+    <div class="tool"><b>Invoke-LabPower.ps1</b><br>Ordered start and stop (DC first up, last down)</div>
+  </div>
+</div></body></html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>HVLAB nested layers</title>
+<style>
+  body{margin:0;background:#fff;font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;color:#0f172a}
+  #d{width:1240px;padding:32px 36px 30px;box-sizing:border-box;background:#fff}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{font-size:13px;color:#475569;margin-bottom:20px}
+  .wrap{display:grid;grid-template-columns:1.25fr 1fr;gap:22px}
+  .box{border-radius:14px;padding:14px 16px;border:1.5px solid}
+  .l0{border-color:#64748b;background:#f8fafc}
+  .l1{border-color:#16a34a;background:#f0fdf4;margin-top:10px}
+  .l2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+  .vm{border:1px solid #93c5fd;background:#eff6ff;border-radius:10px;padding:8px 10px;font-size:12px}
+  .vm b{font-size:13px}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#64748b}
+  .title{font-size:15px;font-weight:700;margin:2px 0 6px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+  .chip{font-size:11.5px;border-radius:999px;padding:3px 9px;background:#fff;border:1px solid #cbd5e1}
+  .sw{margin-top:10px;border-radius:10px;background:#dcfce7;border:1px dashed #16a34a;padding:8px 10px;font-size:12px}
+  .nics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  .nic{border-radius:8px;padding:7px 9px;font-size:11.5px;color:#fff}
+  .nic b{display:block;font-size:12.5px}
+  .side h3{font-size:14px;margin:0 0 8px}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  td,th{border-bottom:1px solid #e2e8f0;padding:6px 6px;text-align:left;vertical-align:top}
+  th{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
+  code{font-family:Consolas,"Cascadia Mono",Menlo,monospace;font-size:11.5px;background:#f1f5f9;border-radius:4px;padding:0 4px}
+</style></head>
+<body><div id="d">
+  <h1>Nested virtualization: what runs inside HV01</h1>
+  <div class="sub">Three layers of Windows on one machine. The parent exposes the CPU's virtualization extensions, so each lab Hyper-V host can run its own VMs.</div>
+  <div class="wrap">
+    <div class="box l0">
+      <div class="tag">L0 · physical host</div>
+      <div class="title">Windows Server 2025 + Hyper-V</div>
+      <div class="chips"><span class="chip">HVLAB-Mgmt (internal)</span><span class="chip">HVLAB-Storage (private)</span><span class="chip">HVLAB-Cluster (private)</span></div>
+      <div class="box l1">
+        <div class="tag">L1 · VM "HV01" · 4 vCPU · 12 GB static</div>
+        <div class="title">Server Core + Hyper-V + Failover Clustering + MPIO</div>
+        <div class="nics">
+          <div class="nic" style="background:#3b82f6"><b>Mgmt → SETswitch</b>host vNIC 10.10.0.11</div>
+          <div class="nic" style="background:#ca8a04"><b>Storage</b>10.10.20.11 · iSCSI</div>
+          <div class="nic" style="background:#7c3aed"><b>Cluster</b>10.10.30.11 · LM/CSV</div>
+        </div>
+        <div class="sw"><b>SETswitch</b> (Switch Embedded Teaming, external) · L2 VMs reach 10.10.0.0/24 because MAC spoofing is on in L0</div>
+        <div class="l2">
+          <div class="vm"><span class="tag">L2 VM</span><br><b>SHELL01</b> · 512 MB · no OS<br>for live migration drills</div>
+          <div class="vm"><span class="tag">L2 VM</span><br><b>WEB01</b> · 1 GB · Server Core<br>with -WithOS · anti-affinity</div>
+        </div>
+        <div class="sw" style="background:#d1fae5;border-style:solid">C:\ClusterStorage\CSV01 · iSCSI LUN from STOR01 via MPIO</div>
+      </div>
+    </div>
+    <div class="side">
+      <h3>Settings that make nesting work (set by scripts 04 and 07)</h3>
+      <table>
+        <tr><th>Where</th><th>Setting</th><th>Why</th></tr>
+        <tr><td>L0</td><td><code>Set-VMProcessor -ExposeVirtualizationExtensions $true</code></td><td>Lets HV01 run a hypervisor. The VM must be off when this is set.</td></tr>
+        <tr><td>L0</td><td>Static memory</td><td>Dynamic memory and runtime resize aren't supported for nested hosts</td></tr>
+        <tr><td>L0</td><td><code>-MacAddressSpoofing On</code></td><td>L2 VM frames leave through HV01's vNIC with their own MACs</td></tr>
+        <tr><td>L0</td><td><code>-DeviceNaming On</code></td><td>The guest sees "Mgmt/Storage/Cluster" as NIC names</td></tr>
+        <tr><td>L1</td><td><code>New-VMSwitch -EnableEmbeddedTeaming</code></td><td>Production-style SET switch shared with the management OS</td></tr>
+        <tr><td>L1</td><td>Live migration: Kerberos + Compression on 10.10.30.0/24</td><td>Production defaults, restricted to the cluster network</td></tr>
+        <tr><td>AD</td><td>Constrained delegation (<code>cifs/</code>, migration service)</td><td>Remote-initiated and shared-nothing migrations</td></tr>
+      </table>
+      <h3 style="margin-top:16px">Known nested limits</h3>
+      <table>
+        <tr><td>No live migration or saved state of HV01 itself, so lab checkpoints power the lab off first</td></tr>
+        <tr><td>No IOMMU or full VBS inside L1, so HGS attestation may report unhealthy</td></tr>
+        <tr><td>L2 performance is lower. Fine for training, not supported for production.</td></tr>
+      </table>
+    </div>
+  </div>
+</div></body></html>
