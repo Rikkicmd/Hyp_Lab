@@ -19,6 +19,7 @@ On top of that it gives you **17 training modules**, each with exercises, hidden
 
 ## Contents
 
+- [Try it without a Hyper-V host: the simulator](#try-it-without-a-hyper-v-host-the-simulator)
 - [What you will learn](#what-you-will-learn)
 - [What gets built](#what-gets-built)
 - [Requirements](#requirements)
@@ -34,6 +35,21 @@ On top of that it gives you **17 training modules**, each with exercises, hidden
 - [Troubleshooting the build](#troubleshooting-the-build)
 - [FAQ](#faq)
 - [Licensing note](#licensing-note)
+
+## Try it without a Hyper-V host: the simulator
+
+Not enough RAM for nested virtualization? [`simulator/index.html`](simulator/index.html) is a single-file, browser-based simulator of the same deployment. Open it in any browser. It runs on an 8 GB laptop and doesn't need Hyper-V, VMs or an internet connection (except for the web fonts).
+
+![HVLAB Simulator](docs/images/simulator.png)
+
+- **A real PowerShell-style console.** You type real cmdlets (`New-VM`, `New-VMSwitch -NetAdapterName ... -EnableEmbeddedTeaming`, `New-IscsiServerTarget`, `Test-Cluster`, `New-Cluster`, `Enable-VMReplication` and about 90 more). Parameters, pipes and `Enter-PSSession -VMName` work as they do on a real host.
+- **Stateful, with errors.** Every command is checked against the environment you have built so far. Skip a step and it fails the way a real server would. For example, Hyper-V cmdlets are missing until you install the role and restart. VMs with no OS don't boot. Joining a domain fails if DNS points at the wrong server. A cluster without shared storage fails validation. Losing a node with no witness takes the cluster down.
+- **A runbook of 9 phases and 31 tasks.** It runs from the bare host to a two-node cluster with CSV, HA VMs, live migration, node drain and a Hyper-V Replica DR site with a test failover. Each task explains *why*, gives a hint, and can show and run the solution.
+- **Live views.** These are tabs for the Hyper-V inventory, Failover Cluster Manager (nodes, roles, disks, networks, iSCSI), a live network topology and an event log.
+- **Incident tickets.** Six break/fix tickets inject faults you diagnose from the console: wrong DNS, a disabled storage NIC, a closed Replica firewall rule, a VLAN-isolated DC, a paused node and checkpoint sprawl.
+- **Saved progress.** Your progress is saved in the browser. Fast mode shortens the simulated waits.
+
+The simulator teaches the commands, the order and the failure modes. It is not a substitute for the real build. Output formats are close to Windows but simplified.
 
 ---
 
@@ -231,6 +247,7 @@ scripts/
   Invoke-LabCheckpoint.ps1        lab-wide save/restore points
   Invoke-LabFault.ps1             break/fix scenarios
 validation/Test-LabModule.ps1     PASS/FAIL checks per module
+simulator/index.html              browser-based deployment simulator (no Hyper-V needed)
 docs/
   modules/00-16-*.md              the curriculum
   reference/                      cheat sheet, build troubleshooting, design decisions

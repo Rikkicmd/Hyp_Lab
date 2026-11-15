@@ -1,0 +1,1037 @@
+<title>HVLAB Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: three-pane operator console. Runbook (left) · PowerShell console (center) · live environment views (right). Stacks on phones. */
+:root{
+  --bg:#eef1f5; --panel:#ffffff; --panel-2:#f6f8fb; --line:#d6dce5; --fg:#16202d; --muted:#5b6778;
+  --accent:#0b62c4; --accent-soft:#e3eefb; --ok:#13804b; --ok-soft:#e1f4ea; --warn:#a15c00; --warn-soft:#fdf0d9;
+  --bad:#b42318; --bad-soft:#fde7e5; --idle:#8a96a8;
+  --term-bg:#0f1722; --term-fg:#d7e1ee; --term-dim:#7f8da1; --term-err:#ff8a80; --term-warn:#ffd479; --term-ok:#7ee2a8; --term-acc:#7cc4ff;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b1119; --panel:#121a25; --panel-2:#17212e; --line:#263345; --fg:#e4ebf4; --muted:#93a1b5;
+  --accent:#5aa9ff; --accent-soft:#16304d; --ok:#4cc98a; --ok-soft:#123224; --warn:#f0b44c; --warn-soft:#3a2a10;
+  --bad:#ff7b72; --bad-soft:#3d1715; --idle:#6b7a8f; --term-bg:#070c13; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1119; --panel:#121a25; --panel-2:#17212e; --line:#263345; --fg:#e4ebf4; --muted:#93a1b5;
+  --accent:#5aa9ff; --accent-soft:#16304d; --ok:#4cc98a; --ok-soft:#123224; --warn:#f0b44c; --warn-soft:#3a2a10;
+  --bad:#ff7b72; --bad-soft:#3d1715; --idle:#6b7a8f; --term-bg:#070c13; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;margin:0}
+.app{display:flex;flex-direction:column;height:100%;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-block:10px;box-sizing:border-box;gap:10px}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font-size:18px;margin:0;letter-spacing:.01em}
+.brand span{font-size:12.5px;color:var(--muted)}
+.prog{flex:1;min-width:180px;display:flex;align-items:center;gap:10px}
+.bar{flex:1;height:8px;border-radius:99px;background:var(--panel-2);border:1px solid var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok);width:0;transition:width .4s}
+.prog b{font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--muted);font-weight:500}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:8px;padding:6px 11px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.ghost{background:transparent}
+button.danger{color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+.grid{flex:1;min-height:0;display:grid;grid-template-columns:330px minmax(0,1fr) 360px;gap:10px}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.pane h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:11px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.scroll{overflow:auto;min-height:0;flex:1}
+/* runbook */
+.phase{border-bottom:1px solid var(--line)}
+.phase>summary{list-style:none;cursor:pointer;padding:10px 14px;display:flex;gap:10px;align-items:center}
+.phase>summary::-webkit-details-marker{display:none}
+.ph-num{font-family:var(--mono);font-size:11.5px;color:var(--muted);width:22px}
+.ph-title{flex:1;font-weight:600;font-size:13.5px}
+.ph-count{font-size:11.5px;font-variant-numeric:tabular-nums;border-radius:99px;padding:1px 8px;background:var(--panel-2);color:var(--muted);border:1px solid var(--line)}
+.ph-count.done{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.task{display:flex;gap:9px;align-items:flex-start;padding:7px 14px 7px 46px;cursor:pointer;font-size:13px;line-height:1.35}
+.task:hover{background:var(--panel-2)}
+.task.sel{background:var(--accent-soft)}
+.dot{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid var(--idle);margin-top:2px;box-sizing:border-box}
+.task.ok .dot{background:var(--ok);border-color:var(--ok)}
+.detail{padding:12px 14px;border-top:1px solid var(--line);background:var(--panel-2);font-size:13px;line-height:1.5;max-height:46%;overflow:auto;flex:none}
+.detail h3{font-size:14px;margin:0 0 6px}
+.detail p{margin:0 0 8px}
+.detail .on{font-size:11.5px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
+.detail details{margin-top:6px}
+.detail summary{cursor:pointer;font-weight:600;font-size:12.5px;color:var(--accent)}
+.sol{margin:8px 0 0;display:flex;flex-direction:column;gap:5px}
+.sol code{display:block;font-family:var(--mono);font-size:11.5px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 7px;white-space:pre-wrap;word-break:break-all;cursor:pointer}
+.sol code:hover{border-color:var(--accent)}
+.sol .ctx{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+/* console */
+.term{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono);font-size:12.8px;line-height:1.45;border-radius:var(--r);display:flex;flex-direction:column;min-height:0;overflow:hidden;border:1px solid var(--line)}
+.term-top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #223047;color:var(--term-dim);font-size:12px}
+.term-top .where{color:var(--term-acc);font-weight:600}
+.term-top .sp{flex:1}
+.term-top button{background:transparent;border-color:#2a3a52;color:var(--term-dim);padding:3px 9px;font-size:12px}
+.out{flex:1;overflow:auto;padding:10px 12px;white-space:pre-wrap;word-break:break-word;min-height:0}
+.out .e{color:var(--term-err)} .out .w{color:var(--term-warn)} .out .k{color:var(--term-ok)} .out .d{color:var(--term-dim)} .out .a{color:var(--term-acc)}
+.out .cmd{color:#fff}
+.inrow{display:flex;gap:6px;align-items:center;padding:8px 12px;border-top:1px solid #223047}
+.prompt{color:var(--term-acc);white-space:nowrap;max-width:45%;overflow:hidden;text-overflow:ellipsis}
+#cmd{flex:1;min-width:0;background:transparent;border:0;color:#fff;font:inherit;outline:none}
+.busy{color:var(--term-warn)}
+/* right */
+.tabs{display:flex;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{border:0;border-radius:0;background:transparent;padding:10px 12px;font-size:12.5px;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent);font-weight:600}
+.view{padding:12px 14px;display:flex;flex-direction:column;gap:12px}
+.card{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.card h4{margin:0;font-size:12.5px;padding:8px 10px;background:var(--panel-2);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+.card h4 small{font-weight:400;color:var(--muted)}
+table.t{width:100%;border-collapse:collapse;font-size:12px}
+table.t td,table.t th{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.t th{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+table.t tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-size:11px;font-weight:600;border-radius:99px;padding:1px 8px;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-warn{background:var(--warn-soft);color:var(--warn)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-idle{background:var(--panel-2);color:var(--muted);border:1px solid var(--line)} .p-acc{background:var(--accent-soft);color:var(--accent)}
+.mono{font-family:var(--mono);font-size:11.5px}
+.empty{color:var(--muted);font-size:12.5px;padding:10px}
+.ev{font-size:12px;padding:7px 10px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:auto 1fr;gap:2px 8px}
+.ev .src{font-family:var(--mono);font-size:11px;color:var(--muted)}
+svg text{font-family:var(--sans)}
+.topo{width:100%;height:auto}
+/* incidents */
+.inc{border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.inc b{font-size:13px}
+.inc .tk{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.inc.active{border-color:var(--warn);background:var(--warn-soft)}
+.inc.solved{border-color:var(--ok)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1}
+.confirm{display:flex;gap:6px;align-items:center;font-size:12.5px}
+@media (max-width:1180px){.grid{grid-template-columns:300px minmax(0,1fr)} .right{grid-column:1 / -1;min-height:420px}}
+@media (max-width:760px){.app{height:auto}.grid{display:flex;flex-direction:column}.term{height:70vh}.left{max-height:none}.right{min-height:0}.detail{max-height:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <header>
+    <div class="brand"><h1>HVLAB Simulator</h1><span>Hyper-V deployment, cluster and DR practice in your browser</span></div>
+    <div class="prog"><div class="bar" aria-hidden="true"><i id="pbar"></i></div><b id="ptext">0 / 0 tasks</b></div>
+    <div class="row" style="margin:0">
+      <button id="fastBtn" class="ghost" aria-pressed="false" title="Speeds up boots and installs">Fast mode: off</button>
+      <span id="resetWrap"><button id="resetBtn" class="ghost danger">Reset lab</button></span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="pane left" aria-label="Deployment runbook">
+      <h2>Deployment runbook <span id="phaseNote" style="text-transform:none;letter-spacing:0;font-weight:500"></span></h2>
+      <div class="scroll" id="runbook"></div>
+      <div class="detail" id="detail"></div>
+    </section>
+
+    <section class="term" aria-label="PowerShell console">
+      <div class="term-top"><span>Windows PowerShell</span><span class="where" id="where">LAB-HOST</span><span class="sp"></span><span id="busy" class="busy" hidden>running…</span><button id="clearBtn">Clear</button></div>
+      <div class="out" id="out" role="log" aria-live="polite"></div>
+      <form class="inrow" id="form" autocomplete="off"><span class="prompt" id="prompt">PS C:\&gt;</span><input id="cmd" aria-label="PowerShell command" spellcheck="false" placeholder="Type a command, or click one in the runbook. Try: help"></form>
+    </section>
+
+    <section class="pane right" aria-label="Environment">
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="inv" aria-selected="true">Hyper-V</button>
+        <button role="tab" data-tab="clu" aria-selected="false">Cluster</button>
+        <button role="tab" data-tab="net" aria-selected="false">Topology</button>
+        <button role="tab" data-tab="inc" aria-selected="false">Incidents</button>
+        <button role="tab" data-tab="evt" aria-selected="false">Events</button>
+      </div>
+      <div class="scroll"><div class="view" id="view"></div></div>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+/* ============================================================
+   Constants describing the lab design
+   ============================================================ */
+const DOMAIN='hvlab.internal', DCIP='10.10.0.10', HOST='LAB-HOST';
+const GOLDEN={'C:\\Images\\WS2025-Core.vhdx':'Windows Server 2025 Datacenter (Server Core)','C:\\Images\\WS2025-Desktop.vhdx':'Windows Server 2025 Datacenter (Desktop Experience)'};
+const ROLE_OF={'HVLAB-Mgmt':'Mgmt','HVLAB-Storage':'Storage','HVLAB-Cluster':'Cluster'};
+const PLAN={DC01:{Mgmt:'10.10.0.10'},STOR01:{Mgmt:'10.10.0.30',Storage:'10.10.20.30'},
+  HV01:{Mgmt:'10.10.0.11',Storage:'10.10.20.11',Cluster:'10.10.30.11'},HV02:{Mgmt:'10.10.0.12',Storage:'10.10.20.12',Cluster:'10.10.30.12'},HV03:{Mgmt:'10.10.0.13'},
+  MGMT01:{Mgmt:'10.10.0.20'}};
+const GB=1073741824, MB=1048576;
+const HOST_RAM=64*GB, HOST_RESERVE=4*GB;
+const FEATURES={'Hyper-V':'Hyper-V','Failover-Clustering':'Failover Clustering','Multipath-IO':'Multipath I/O','AD-Domain-Services':'Active Directory Domain Services','DNS':'DNS Server','DHCP':'DHCP Server','FS-iSCSITarget-Server':'iSCSI Target Server','Windows-Server-Backup':'Windows Server Backup','RSAT-Clustering-PowerShell':'Failover Cluster Module for Windows PowerShell','Hyper-V-PowerShell':'Hyper-V Module for Windows PowerShell'};
+const RESTART_FEATURES=['Hyper-V','Multipath-IO'];
+const FW_REPLICA='Hyper-V Replica HTTP Listener (TCP-In)';
+
+/* ============================================================
+   State
+   ============================================================ */
+let S, uid=1, fast=false;
+function mkMachine(name,physical){return {name,physical:!!physical,features:{},domain:null,pendingDomain:null,isDC:false,pendingDC:false,dns:physical?'192.168.1.1':DCIP,nicOff:{},hostIps:{},fw:{replica:false},hv:{migration:false,auth:'CredSSP',replica:null},iscsi:{portals:[],sessions:[]},mpio:false,set:null}}
+function fresh(){return {v:3,machines:{[HOST]:mkMachine(HOST,true)},vms:{},vhds:{},switches:{[HOST]:{}},nat:null,iscsi:{targets:{},vdisks:{}},cluster:null,events:[],flags:{},incidents:{},log:[],uid:1,ctx:HOST,sel:'p1t1'}}
+function load(){try{const s=JSON.parse(localStorage.getItem('hvlab-sim'));if(s&&s.v===3){uid=s.uid||1;return s}}catch(e){}return fresh()}
+function save(){S.uid=uid;try{localStorage.setItem('hvlab-sim',JSON.stringify(S))}catch(e){}}
+S=load();
+
+/* ============================================================
+   Helpers
+   ============================================================ */
+const $=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,fast?Math.min(ms,ms/6+80):ms));
+const lc=s=>String(s).toLowerCase();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fmtBytes(b){if(b==null)return '';if(b>=GB)return (b/GB).toFixed(b%GB?1:0)+' GB';return Math.round(b/MB)+' MB'}
+function now(){const d=new Date();return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+function ev(src,id,level,msg){S.events.unshift({t:now(),src,id,level,msg});if(S.events.length>120)S.events.length=120}
+function vmList(parent){return Object.values(S.vms).filter(v=>!parent||v.parent===parent)}
+function findVM(parent,name){return Object.values(S.vms).find(v=>v.parent===parent&&lc(v.name)===lc(name))}
+function findVMany(name){return Object.values(S.vms).find(v=>lc(v.name)===lc(name)&&!v.replicaOf&&!v.testOf)}
+function guestVM(m){return Object.values(S.vms).find(v=>v.parent===HOST&&v.name===m)}
+function vhdRoot(path){let p=path,g=0;while(p&&S.vhds[lc(p)]&&S.vhds[lc(p)].parent&&g++<10)p=S.vhds[lc(p)].parent;return GOLDEN[p]?p:(Object.keys(GOLDEN).find(k=>lc(k)===lc(p))||null)}
+function hasOS(v){return v.parent===HOST&&v.vhd&&!!vhdRoot(v.vhd)&&v.gen===2}
+function machineUp(name){const m=S.machines[name];if(!m)return false;if(m.physical)return true;const v=guestVM(name);return !!(v&&v.state==='Running'&&v.booted)}
+function featureState(m,f){return m.features[f]||null}
+function has(m,f){return featureState(m,f)==='Installed'}
+function ensureGuest(v){if(!S.machines[v.name]){S.machines[v.name]=mkMachine(v.name,false);ev(v.name,'Setup',0,`First boot of ${v.name} completed: specialize pass applied the unattend answer file (computer name, password, NIC names, planned IPs).`)}return S.machines[v.name]}
+function sizeOf(v){return v.mem}
+function usedMem(parent){return vmList(parent).filter(v=>v.state==='Running').reduce((a,v)=>a+v.mem,0)}
+function capMem(parent){if(parent===HOST)return HOST_RAM-HOST_RESERVE;const v=guestVM(parent);return v?Math.max(0,v.mem-2*GB):0}
+
+/* NICs as seen inside a machine */
+function nicsOf(name){
+  const m=S.machines[name];if(!m)return [];
+  if(m.physical){
+    const list=[{alias:'Ethernet',ip:'192.168.1.50',len:24,sw:'(physical)',enabled:true,vlan:0,gw:'192.168.1.1'}];
+    Object.entries(S.switches[HOST]||{}).forEach(([n,s])=>{if(s.type==='Internal'){list.push({alias:`vEthernet (${n})`,ip:m.hostIps[n]||'169.254.83.12',len:m.hostIps[n]?24:16,sw:n,enabled:true,vlan:0,mgmtSw:n})}});
+    return list;
+  }
+  const v=guestVM(name);if(!v)return [];
+  return v.nics.map((a,i)=>{const role=ROLE_OF[a.switch];let alias=role||(i?`Ethernet ${i+1}`:'Ethernet');
+    const setOn=m.set&&role&&m.set.nic===role;if(setOn)alias=`vEthernet (${m.set.name})`;
+    const ip=(role&&PLAN[name]&&PLAN[name][role])||null;
+    return {alias,role,ip:ip||'169.254.40.7',len:ip?24:16,sw:a.switch,enabled:!m.nicOff[role||alias],vlan:a.vlan||0,gw:role==='Mgmt'?'10.10.0.1':null,real:!!ip}});
+}
+function nicByRole(name,role){return nicsOf(name).find(n=>n.role===role||(role==='Mgmt'&&n.mgmtSw==='HVLAB-Mgmt'))}
+function reach(a,b,role){
+  if(!machineUp(a)||!machineUp(b))return false;
+  const A=nicsOf(a),B=nicsOf(b);
+  return A.some(x=>x.enabled&&x.sw&&x.sw!=='(physical)'&&(x.real||S.machines[a].physical)&&B.some(y=>y.enabled&&y.sw===x.sw&&y.vlan===x.vlan&&(y.real||S.machines[b].physical)&&(!role||ROLE_OF[x.sw]===role)));
+}
+function machineByIP(ip){for(const n of Object.keys(S.machines)){if(nicsOf(n).some(x=>x.ip===ip&&(x.real||S.machines[n].physical)))return n}return null}
+function canAuth(name){ // domain auth / DNS for a member
+  const m=S.machines[name];
+  if(!m||!m.domain)return {ok:false,why:'not joined'};
+  if(m.dns!==DCIP)return {ok:false,why:'dns'};
+  const dc=S.machines.DC01;if(!dc||!dc.isDC)return {ok:false,why:'nodc'};
+  if(!reach(name,'DC01','Mgmt'))return {ok:false,why:'reach'};
+  return {ok:true};
+}
+function resolveName(from,name){
+  let n=String(name).replace(/\.hvlab\.internal$/i,'').toUpperCase();
+  const m=S.machines[from];
+  if(/^\d+\.\d+\.\d+\.\d+$/.test(name))return {ip:name,machine:machineByIP(name)};
+  if(from!==HOST&&(m.dns!==DCIP||!S.machines.DC01||!S.machines.DC01.isDC||!reach(from,'DC01','Mgmt')))return {err:'dns'};
+  if(from===HOST)return {err:'nxdomain'};
+  const target=S.machines[n];
+  if(n==='HVCLU01'&&S.cluster)return {ip:S.cluster.ip,machine:'HVCLU01'};
+  if(S.cluster&&S.cluster.groups['HVCLU01-RB']&&n==='HVCLU01-RB')return {ip:'10.10.0.51',machine:'HVCLU01-RB'};
+  if(!target||!(target.domain===DOMAIN||target.isDC))return {err:'nxdomain'};
+  const nic=nicByRole(n,'Mgmt');return {ip:nic?nic.ip:'',machine:n};
+}
+
+/* ============================================================
+   Output
+   ============================================================ */
+const out=$('out');
+function print(text,cls){const d=document.createElement('div');if(cls)d.className=cls;d.textContent=text;out.appendChild(d);S.log.push([text,cls||'']);if(S.log.length>500)S.log.splice(0,S.log.length-500);out.scrollTop=out.scrollHeight}
+class PSErr extends Error{constructor(cmd,msg,cat){super(msg);this.cmd=cmd;this.cat=cat||'InvalidOperation'}}
+function perr(e,line){print(`${e.cmd} : ${e.message}\n    + CategoryInfo          : ${e.cat}: (:) [${e.cmd}], ${e.cat==='ObjectNotFound'?'ItemNotFoundException':'Exception'}\n    + FullyQualifiedErrorId : ${e.cat},${e.cmd}`,'e')}
+function warn(t){print('WARNING: '+t,'w')}
+function fmtVal(v){if(v===true)return 'True';if(v===false)return 'False';if(v==null)return '';if(Array.isArray(v))return '{'+v.join(', ')+'}';return String(v)}
+function table(rows,cols){
+  if(!rows.length)return;
+  cols=cols||Object.keys(rows[0]);
+  const w=cols.map(c=>Math.max(c.length,...rows.map(r=>fmtVal(r[c]).length)));
+  const lines=[cols.map((c,i)=>c.padEnd(w[i])).join(' '),cols.map((c,i)=>'-'.repeat(c.length).padEnd(w[i])).join(' ')];
+  rows.forEach(r=>lines.push(cols.map((c,i)=>fmtVal(r[c]).padEnd(w[i])).join(' ').trimEnd()));
+  print('\n'+lines.join('\n')+'\n');
+}
+function list(rows,cols){rows.forEach(r=>{const ks=cols||Object.keys(r);const w=Math.max(...ks.map(k=>k.length));print('\n'+ks.map(k=>k.padEnd(w)+' : '+fmtVal(r[k])).join('\n'))});print('')}
+
+/* ============================================================
+   Parser
+   ============================================================ */
+function tokenize(s){
+  const t=[];let i=0;
+  while(i<s.length){const c=s[i];
+    if(/\s/.test(c)){i++;continue}
+    if(c==='|'){t.push({k:'pipe'});i++;continue}
+    if(c===','){t.push({k:'comma'});i++;continue}
+    if(c==='"'||c==="'"){let j=i+1,v='';while(j<s.length&&s[j]!==c){v+=s[j];j++}t.push({k:'str',v});i=j+1;continue}
+    let j=i,v='';while(j<s.length&&!/[\s|,]/.test(s[j])){v+=s[j];j++}t.push({k:'word',v});i=j}
+  return t;
+}
+function conv(tok){
+  if(tok.k==='str')return tok.v;
+  const v=tok.v;
+  if(/^\$true$/i.test(v))return true; if(/^\$false$/i.test(v))return false;
+  const m=v.match(/^(\d+(?:\.\d+)?)(KB|MB|GB|TB)$/i);
+  if(m)return Math.round(parseFloat(m[1])*{kb:1024,mb:MB,gb:GB,tb:GB*1024}[lc(m[2])]);
+  if(/^\d+$/.test(v))return parseInt(v,10);
+  return v;
+}
+function parseSeg(toks){
+  const cmd=toks[0]&&toks[0].v;const named={},pos=[];let i=1;
+  const isParam=t=>t&&t.k==='word'&&/^-[A-Za-z]/.test(t.v);
+  const readVal=()=>{const vals=[conv(toks[i])];i++;while(toks[i]&&toks[i].k==='comma'&&toks[i+1]){vals.push(conv(toks[i+1]));i+=2}return vals.length>1?vals:vals[0]};
+  while(i<toks.length){const t=toks[i];
+    if(isParam(t)){let name=t.v.slice(1);let val;
+      const ci=name.indexOf(':');
+      if(ci>0){val=conv({k:'word',v:name.slice(ci+1)});name=name.slice(0,ci);i++}
+      else{i++;if(i<toks.length&&!isParam(toks[i])&&toks[i].k!=='comma')val=readVal();else val=true}
+      named[lc(name)]=val;
+    }else if(t.k==='comma'){i++}else{pos.push(readVal())}}
+  return {cmd,named,pos};
+}
+function P(p,names,idx){for(const n of [].concat(names)){if(p.named[lc(n)]!==undefined)return p.named[lc(n)]}if(idx!=null&&p.pos[idx]!==undefined)return p.pos[idx];return undefined}
+const arr=v=>v==null?[]:[].concat(v);
+
+/* ============================================================
+   Cmdlet registry
+   ============================================================ */
+const C={};
+function def(names,mod,fn,help){[].concat(names).forEach((n,i)=>C[lc(n)]={name:[].concat(names)[0],mod,fn,help:i?null:help})}
+function modAvailable(mod,m){
+  if(!mod)return true;
+  if(mod==='hyperv')return !!m.features['Hyper-V'];
+  if(mod==='cluster')return !!m.features['Failover-Clustering'];
+  if(mod==='ad')return m.isDC||!!m.features['AD-Domain-Services'];
+  if(mod==='addsdeploy')return !!m.features['AD-Domain-Services'];
+  if(mod==='iscsitarget')return !!m.features['FS-iSCSITarget-Server'];
+  if(mod==='mpio')return !!m.features['Multipath-IO'];
+  return true;
+}
+function needHV(cmd,m){if(featureState(m,'Hyper-V')!=='Installed')throw new PSErr(cmd,`The Hyper-V Virtual Machine Management service is not running on '${m.name}'. The Hyper-V role was installed but the computer has not been restarted.`)}
+function ctxM(){return S.machines[S.ctx]}
+function vmsByName(cmd,names,parent){
+  const res=[];for(const n of arr(names)){const pat=new RegExp('^'+String(n).replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'.*')+'$','i');
+    const found=vmList(parent).filter(v=>pat.test(v.name));
+    if(!found.length)throw new PSErr(cmd,`Hyper-V was unable to find a virtual machine with name "${n}".`,'ObjectNotFound');res.push(...found)}
+  return res;
+}
+function vmRow(v){return {Name:v.name,State:v.state,'CPUUsage(%)':v.state==='Running'?(v.booted?Math.floor(Math.random()*4):12):0,'MemoryAssigned(M)':v.state==='Running'?Math.round(v.mem/MB):0,Uptime:v.state==='Running'?(v.booted?'00:0'+(1+Math.floor(Math.random()*8))+':'+String(10+Math.floor(Math.random()*49)):'00:00:03'):'00:00:00',Status:v.status||'Operating normally',Version:'12.0'}}
+
+/* ---------- general ---------- */
+def(['help','Get-Help','Get-Command','gcm'],null,(m,p)=>{
+  const mods={null:'General',hyperv:'Hyper-V',cluster:'FailoverClusters',ad:'ActiveDirectory',addsdeploy:'ADDSDeployment',iscsitarget:'IscsiTarget',mpio:'MPIO'};
+  const groups={};Object.values(C).filter(c=>c.help!==null&&c.name!=='help').forEach(c=>{const g=mods[c.mod]||'General';const avail=modAvailable(c.mod,m);(groups[g]=groups[g]||[]).push((avail?'':'(not installed) ')+c.name)});
+  print('Cmdlets this simulator understands on '+m.name+'. Modules light up once their role or feature is installed.','d');
+  Object.entries(groups).forEach(([g,l])=>print(`\n${g}\n  `+[...new Set(l)].sort().join('\n  ')));
+  print('\nTips: Tab completes cmdlet names, Up/Down recalls history, "| fl" shows every property. Enter-PSSession -VMName <name> connects to a VM over PowerShell Direct.','d');
+});
+def(['Clear-Host','cls','clear'],null,()=>{out.innerHTML='';S.log=[]});
+def(['hostname'],null,m=>print(m.name));
+def(['ipconfig'],null,m=>{print('\nWindows IP Configuration\n');nicsOf(m.name).forEach(n=>{print(`Ethernet adapter ${n.alias}:\n\n   ${n.enabled?'IPv4 Address. . . . . . . . . . . : '+n.ip+'\n   Subnet Mask . . . . . . . . . . . : '+(n.len===24?'255.255.255.0':'255.255.0.0')+'\n   Default Gateway . . . . . . . . . : '+(n.gw||''):'Media State . . . . . . . . . . . : Media disconnected'}\n`)})});
+def(['Get-ComputerInfo'],null,m=>list([{CsName:m.name,CsDomain:m.domain||'WORKGROUP',CsPartOfDomain:!!m.domain,OsName:m.physical?'Microsoft Windows Server 2025 Datacenter':(GOLDEN[vhdRoot(guestVM(m.name).vhd)]||''),HyperVisorPresent:has(m,'Hyper-V')}]));
+
+def(['Enter-PSSession','etsn'],null,async(m,p)=>{
+  const vmn=P(p,'VMName'),cn=P(p,['ComputerName','cn'],0),target=vmn||cn;
+  if(!target)throw new PSErr('Enter-PSSession','Specify -VMName (PowerShell Direct) or -ComputerName (WinRM).','InvalidArgument');
+  if(S.ctx!==HOST)throw new PSErr('Enter-PSSession','You are already in a remote session. Run Exit-PSSession first.');
+  const t=String(target).replace(/\.hvlab\.internal$/i,'').toUpperCase();
+  if(vmn){
+    if(!modAvailable('hyperv',m))throw new PSErr('Enter-PSSession','The -VMName parameter needs the Hyper-V module. Install the Hyper-V role on this computer first.');
+    const v=findVM(HOST,t);if(!v)throw new PSErr('Enter-PSSession',`The specified virtual machine '${target}' was not found on ${HOST}.`,'ObjectNotFound');
+    if(v.state!=='Running')throw new PSErr('Enter-PSSession',`The virtual machine '${v.name}' is not in running state.`);
+    if(!hasOS(v)){await sleep(1500);throw new PSErr('Enter-PSSession',`An error has occurred which Windows PowerShell cannot handle. The virtual machine '${v.name}' did not respond: it has no bootable operating system${v.gen===1?' (a Generation 1 VM cannot boot the UEFI/GPT golden image)':''}. Open its console to see the boot screen.`,'OpenError')}
+    if(!v.booted){throw new PSErr('Enter-PSSession',`The virtual machine '${v.name}' is still booting. Wait a few seconds and try again.`,'OpenError')}
+    S.ctx=v.name;return;
+  }
+  throw new PSErr('Enter-PSSession',`Connecting to remote server ${target} failed: ${HOST} is not joined to ${DOMAIN}, so Kerberos authentication is not possible. Use PowerShell Direct instead: Enter-PSSession -VMName ${t}`,'OpenError');
+},'Connect to a VM (-VMName, PowerShell Direct)');
+def(['Exit-PSSession','exit'],null,()=>{S.ctx=HOST});
+
+def(['Restart-Computer'],null,async m=>{await restartMachine(m.name)});
+async function restartMachine(name){
+  const m=S.machines[name];
+  if(m.physical){
+    print(`${name} is restarting...`,'d');ev(name,'1074',1,'The system is restarting to complete pending operations.');
+    if(S.ctx!==HOST)S.ctx=HOST;
+    await sleep(2500);settlePending(m);print(`${name} is back online. Pending feature installations completed.`,'k');refresh();return;
+  }
+  const v=guestVM(name);
+  if(S.ctx===name){S.ctx=HOST;print(`[${name}] The remote session ended because ${name} is restarting.`,'d')}
+  v.booted=false;refresh();
+  await sleep(3000);settlePending(m);
+  if(v.state==='Running'){v.booted=true;print(`${name} restarted and is back online.`,'k');clusterRejoin(name)}
+  refresh();
+}
+function settlePending(m){
+  Object.keys(m.features).forEach(f=>{if(m.features[f]==='Pending'){m.features[f]='Installed';ev(m.name,'Servicing',0,`Feature ${f} configured after restart.`)}});
+  if(m.pendingDomain){m.domain=m.pendingDomain;m.pendingDomain=null;ev(m.name,'Netlogon',0,`${m.name} joined domain ${m.domain}.`)}
+  if(m.pendingDC){m.pendingDC=false;m.isDC=true;m.domain=DOMAIN;m.features['DNS']='Installed';m.dns=DCIP;ev(m.name,'ADDS',0,`DC01 is now the first domain controller of the ${DOMAIN} forest. DNS Server role installed.`)}
+}
+
+def(['Get-WindowsFeature'],null,(m,p)=>{
+  const names=arr(P(p,'Name',0));
+  let keys=Object.keys(FEATURES);if(names.length)keys=keys.filter(k=>names.some(n=>new RegExp('^'+String(n).replace(/\*/g,'.*')+'$','i').test(k)));
+  print('\nDisplay Name                                            Name                       Install State\n------------                                            ----                       -------------');
+  keys.forEach(k=>{const st=m.features[k]==='Installed'?'Installed':m.features[k]==='Pending'?'InstallPending':'Available';print(`${(st==='Installed'?'[X] ':'[ ] ')+FEATURES[k]}`.padEnd(56)+k.padEnd(27)+st)});print('');
+},'List roles and features');
+def(['Install-WindowsFeature','Add-WindowsFeature','Enable-WindowsOptionalFeature'],null,async(m,p)=>{
+  let names=arr(P(p,['Name','FeatureName'],0)).map(n=>n==='Microsoft-Hyper-V-All'||n==='Microsoft-Hyper-V'?'Hyper-V':n);
+  if(!names.length)throw new PSErr('Install-WindowsFeature','Specify -Name.','InvalidArgument');
+  const tools=!!P(p,'IncludeManagementTools');
+  for(const n of names){const k=Object.keys(FEATURES).find(f=>lc(f)===lc(n));if(!k)throw new PSErr('Install-WindowsFeature',`ArgumentNotValid: The role, role service, or feature name is not valid: '${n}'. The name was not found.`,'InvalidArgument');}
+  names=names.map(n=>Object.keys(FEATURES).find(f=>lc(f)===lc(n)));
+  if(names.includes('Hyper-V')&&!m.physical){const v=guestVM(m.name);if(!v.expose){await sleep(900);throw new PSErr('Install-WindowsFeature',`Hyper-V cannot be installed: The processor does not have required virtualization capabilities. (On the physical host, turn the VM off and run Set-VMProcessor -VMName ${m.name} -ExposeVirtualizationExtensions $true.)`)}}
+  if(names.includes('Hyper-V')&&m.physical&&m.features['Hyper-V']){print('No changes: Hyper-V is already '+lc(m.features['Hyper-V'])+'.','d')}
+  print('Start Installation...','d');await sleep(900);print('[oooooooooooooooooooooooooooooo  ]  ... 93%','d');await sleep(1100);
+  let restart=false;
+  names.forEach(n=>{if(m.features[n])return;if(RESTART_FEATURES.includes(n)){m.features[n]='Pending';restart=true}else m.features[n]='Installed';
+    if(n==='Hyper-V'&&tools)m.features['Hyper-V-PowerShell']='Installed';if(n==='Failover-Clustering')m.features['RSAT-Clustering-PowerShell']='Installed';if(n==='Multipath-IO')m.mpio=true});
+  table([{Success:true,'Restart Needed':restart?'Yes':'No','Exit Code':restart?'SuccessRestartRequired':'Success','Feature Result':'{'+names.map(n=>FEATURES[n]).join(', ')+'}'}]);
+  if(names.includes('Hyper-V')&&!tools)warn('Run with -IncludeManagementTools to also get Hyper-V Manager and the Hyper-V PowerShell module. (The simulator installs the module anyway.)');
+  ev(m.name,'Servicing',0,`Installed ${names.join(', ')}${restart?' (restart required)':''}.`);
+  if(restart){if(P(p,'Restart')){await restartMachine(m.name)}else warn('You must restart this server to finish the installation process.')}
+},'Install roles/features (-Name, -IncludeManagementTools, -Restart)');
+
+/* ---------- networking (guest + host) ---------- */
+def(['Get-NetAdapter'],null,m=>table(nicsOf(m.name).map((n,i)=>({Name:n.alias,InterfaceDescription:n.sw==='(physical)'?'Intel(R) Ethernet Controller X710':(m.physical?'Hyper-V Virtual Ethernet Adapter #'+(i+1):'Microsoft Hyper-V Network Adapter'+(i?' #'+(i+1):'')),ifIndex:4+i*3,Status:!n.enabled?'Disabled':(n.sw?'Up':'Disconnected'),LinkSpeed:n.sw==='(physical)'?'10 Gbps':'10 Gbps'}))),'Network adapters');
+function nicAlias(m,name){const n=nicsOf(m.name).find(x=>lc(x.alias)===lc(name)||lc(x.role||'')===lc(name));return n}
+def(['Disable-NetAdapter'],null,(m,p)=>{const n=nicAlias(m,P(p,'Name',0));if(!n)throw new PSErr('Disable-NetAdapter',`No MSFT_NetAdapter objects found with property 'Name' equal to '${P(p,'Name',0)}'.`,'ObjectNotFound');m.nicOff[n.role||n.alias]=true;ev(m.name,'NDIS',1,`Network adapter ${n.alias} was disabled.`);afterNetChange()});
+def(['Enable-NetAdapter'],null,(m,p)=>{const n=nicAlias(m,P(p,'Name',0));if(!n)throw new PSErr('Enable-NetAdapter',`No MSFT_NetAdapter objects found with property 'Name' equal to '${P(p,'Name',0)}'.`,'ObjectNotFound');delete m.nicOff[n.role||n.alias];ev(m.name,'NDIS',0,`Network adapter ${n.alias} was enabled.`);afterNetChange()});
+def(['Get-NetIPAddress'],null,(m,p)=>{const a=P(p,'InterfaceAlias');table(nicsOf(m.name).filter(n=>n.enabled&&(!a||lc(n.alias)===lc(a))).map(n=>({IPAddress:n.ip,InterfaceAlias:n.alias,PrefixLength:n.len,PrefixOrigin:n.real||m.physical?(n.ip.startsWith('169.254')?'WellKnown':'Manual'):'WellKnown',AddressState:'Preferred'})))});
+def(['New-NetIPAddress'],null,(m,p)=>{
+  const a=P(p,'InterfaceAlias'),ip=P(p,'IPAddress'),len=P(p,'PrefixLength');
+  if(!a||!ip)throw new PSErr('New-NetIPAddress','Specify -InterfaceAlias and -IPAddress.','InvalidArgument');
+  if(!m.physical)throw new PSErr('New-NetIPAddress','Instance MSFT_NetIPAddress already exists. (Lab guests get their planned static IPs from the answer file at first boot.)','ResourceExists');
+  const mm=String(a).match(/^vEthernet \((.+)\)$/i);const sw=mm&&Object.keys(S.switches[HOST]).find(s=>lc(s)===lc(mm[1]));
+  if(!sw)throw new PSErr('New-NetIPAddress',`No MSFT_NetIPInterface objects found with property 'InterfaceAlias' equal to '${a}'. Create an internal switch first; its host adapter is named "vEthernet (<switch name>)".`,'ObjectNotFound');
+  m.hostIps[sw]=ip;table([{IPAddress:ip,InterfaceAlias:`vEthernet (${sw})`,PrefixLength:len||24,AddressFamily:'IPv4',Type:'Unicast'}]);
+},'Assign an IP address');
+def(['Get-DnsClientServerAddress'],null,m=>table(nicsOf(m.name).filter(n=>n.enabled).map((n,i)=>({InterfaceAlias:n.alias,Interface:4+i*3,Address:'IPv4',ServerAddresses:(n.role==='Mgmt'||n.sw==='(physical)')?[m.dns]:[]}))));
+def(['Set-DnsClientServerAddress'],null,(m,p)=>{const a=P(p,'InterfaceAlias',0),s=arr(P(p,'ServerAddresses',1));const n=nicAlias(m,a);if(!n)throw new PSErr('Set-DnsClientServerAddress',`No MSFT_DNSClientServerAddress objects found with property 'InterfaceAlias' equal to '${a}'.`,'ObjectNotFound');if(n.role==='Mgmt'||m.physical)m.dns=s[0];afterNetChange()},'Set DNS servers');
+def(['Clear-DnsClientCache'],null,()=>{});
+def(['Resolve-DnsName'],null,async(m,p)=>{const n=P(p,'Name',0);const r=resolveName(m.name,n);
+  if(r.err==='dns'){await sleep(1500);throw new PSErr('Resolve-DnsName',`${n} : This operation returned because the timeout period expired`,'OperationTimeout')}
+  if(r.err)throw new PSErr('Resolve-DnsName',`${n} : DNS name does not exist`,'ResourceUnavailable');
+  table([{Name:String(n).includes('.')?n:`${lc(n)}.${DOMAIN}`,Type:'A',TTL:1200,Section:'Answer',IPAddress:r.ip}]);
+},'Resolve a name through DNS');
+def(['Test-NetConnection','tnc'],null,async(m,p)=>{const n=P(p,['ComputerName','RemoteAddress'],0),port=P(p,'Port');await sleep(700);
+  const r=resolveName(m.name,n);if(r.err){warn(`Name resolution of ${n} failed`);list([{ComputerName:n,RemoteAddress:'',PingSucceeded:false}]);return}
+  let ok=false;const t=r.machine;
+  if(t==='HVCLU01'||t==='HVCLU01-RB'){ok=S.cluster&&Object.keys(S.cluster.nodes).some(x=>S.cluster.nodes[x].state!=='Down'&&reach(m.name,x,'Mgmt'))}
+  else if(t)ok=reach(m.name,t);
+  const row={ComputerName:n,RemoteAddress:r.ip,InterfaceAlias:(nicByRole(m.name,'Mgmt')||{}).alias||'Ethernet',SourceAddress:(nicByRole(m.name,'Mgmt')||{}).ip||''};
+  if(port){let tcp=ok;if(ok&&+port===80){tcp=t&&S.machines[t]&&S.machines[t].hv.replica&&S.machines[t].fw.replica}if(ok&&+port===3260)tcp=t==='STOR01'&&has(S.machines.STOR01,'FS-iSCSITarget-Server');if(!tcp)warn(`TCP connect to (${r.ip} : ${port}) failed`);row.RemotePort=port;row.TcpTestSucceeded=tcp}
+  else{if(!ok)warn(`Ping to ${r.ip} failed with status: TimedOut`);row.PingSucceeded=ok}
+  list([row]);
+},'Test reachability (-Port)');
+def(['Get-NetFirewallRule'],null,(m,p)=>{const n=P(p,'DisplayName',0);const rows=[{DisplayName:FW_REPLICA,Enabled:m.fw.replica,Direction:'Inbound',Action:'Allow'},{DisplayName:'File and Printer Sharing (Echo Request - ICMPv4-In)',Enabled:true,Direction:'Inbound',Action:'Allow'}].filter(r=>!n||new RegExp('^'+String(n).replace(/[()]/g,'\\$&').replace(/\*/g,'.*')+'$','i').test(r.DisplayName));table(rows)});
+function fwSet(m,p,val,cmd){const n=P(p,['DisplayName','Name'],0);if(!n||!new RegExp('^'+String(n).replace(/[()]/g,'\\$&').replace(/\*/g,'.*')+'$','i').test(FW_REPLICA))throw new PSErr(cmd,`No MSFT_NetFirewallRule objects found with property 'DisplayName' equal to '${n}'.`,'ObjectNotFound');m.fw.replica=val;afterNetChange()}
+def(['Enable-NetFirewallRule'],null,(m,p)=>fwSet(m,p,true,'Enable-NetFirewallRule'),'Enable a firewall rule (-DisplayName)');
+def(['Disable-NetFirewallRule'],null,(m,p)=>fwSet(m,p,false,'Disable-NetFirewallRule'));
+def(['New-NetNat'],null,(m,p)=>{if(!m.physical)throw new PSErr('New-NetNat','Run this on the physical host.');const n=P(p,'Name'),pre=P(p,'InternalIPInterfaceAddressPrefix');if(!n||!pre)throw new PSErr('New-NetNat','Specify -Name and -InternalIPInterfaceAddressPrefix.','InvalidArgument');if(S.nat)throw new PSErr('New-NetNat','The parameter is incorrect. Only one NetNat instance is supported per host; remove the existing one first.');S.nat={name:n,prefix:pre};list([{Name:n,ExternalIPInterfaceAddressPrefix:'',InternalIPInterfaceAddressPrefix:pre,Active:true}])},'Create a NAT for an internal switch');
+def(['Get-NetNat'],null,()=>{if(S.nat)list([{Name:S.nat.name,InternalIPInterfaceAddressPrefix:S.nat.prefix,Active:true}])});
+
+/* ---------- Hyper-V host & switches ---------- */
+def(['Get-VMHost'],'hyperv',(m)=>{needHV('Get-VMHost',m);list([{ComputerName:m.name,LogicalProcessorCount:m.physical?16:4,MemoryCapacity:m.physical?HOST_RAM:(guestVM(m.name).mem),VirtualMachinePath:m.physical?'C:\\VMs':'C:\\ProgramData\\Microsoft\\Windows\\Hyper-V',VirtualMachineMigrationEnabled:m.hv.migration,VirtualMachineMigrationAuthenticationType:m.hv.auth,VirtualMachineMigrationPerformanceOption:'Compression',MaximumVirtualMachineMigrations:2}])},'Host settings');
+def(['Set-VMHost'],'hyperv',(m,p)=>{needHV('Set-VMHost',m);const a=P(p,'VirtualMachineMigrationAuthenticationType');if(a){if(!/^(kerberos|credssp)$/i.test(a))throw new PSErr('Set-VMHost',`Cannot bind parameter 'VirtualMachineMigrationAuthenticationType': "${a}" is not Kerberos or CredSSP.`,'InvalidArgument');m.hv.auth=/kerb/i.test(a)?'Kerberos':'CredSSP'}});
+def(['Enable-VMMigration'],'hyperv',m=>{needHV('Enable-VMMigration',m);m.hv.migration=true},'Allow live migration to/from this host');
+def(['Disable-VMMigration'],'hyperv',m=>{needHV('Disable-VMMigration',m);m.hv.migration=false});
+def(['Get-VMSwitch'],'hyperv',m=>{needHV('Get-VMSwitch',m);const sw=S.switches[m.name]||{};table(Object.entries(sw).map(([n,s])=>({Name:n,SwitchType:s.type,NetAdapterInterfaceDescription:s.nic?'Microsoft Hyper-V Network Adapter ('+s.nic+')':'',EmbeddedTeamingEnabled:!!s.set})))},'List virtual switches');
+def(['New-VMSwitch'],'hyperv',async(m,p)=>{needHV('New-VMSwitch',m);
+  const n=P(p,'Name',0),type=P(p,'SwitchType'),nic=P(p,'NetAdapterName');
+  if(!n)throw new PSErr('New-VMSwitch','Specify -Name.','InvalidArgument');
+  S.switches[m.name]=S.switches[m.name]||{};
+  if(Object.keys(S.switches[m.name]).some(k=>lc(k)===lc(n)))throw new PSErr('New-VMSwitch',`Failed while adding virtual Ethernet switch connections. A switch named '${n}' already exists.`,'ResourceExists');
+  if(nic){
+    if(m.physical)throw new PSErr('New-VMSwitch','In this lab the physical host only uses internal and private switches (your real network stays untouched). Use -SwitchType Internal or Private.');
+    const a=nicAlias(m,nic);if(!a)throw new PSErr('New-VMSwitch',`Network adapter '${nic}' was not found.`,'ObjectNotFound');
+    if(m.set)throw new PSErr('New-VMSwitch',`Adapter ${nic} is already bound to switch ${m.set.name}.`);
+    const team=P(p,'EnableEmbeddedTeaming')===true;
+    print('Creating the switch. The host loses connectivity on '+a.alias+' for a few seconds while its IP moves to the new host vNIC...','d');await sleep(1600);
+    S.switches[m.name][n]={type:'External',nic:a.role||a.alias,set:team};m.set={name:n,nic:a.role||a.alias};
+    table([{Name:n,SwitchType:'External',NetAdapterInterfaceDescription:'Microsoft Hyper-V Network Adapter',EmbeddedTeamingEnabled:team}]);
+    if(!team)warn('Embedded teaming is off. SET (-EnableEmbeddedTeaming $true) is the recommended switch type for Hyper-V hosts and lets you add team members later.');
+    ev(m.name,'VmSwitch',0,`External switch ${n} created on ${a.role||a.alias}${team?' with Switch Embedded Teaming':''}.`);return;
+  }
+  if(!type||!/^(internal|private)$/i.test(type))throw new PSErr('New-VMSwitch','Specify -SwitchType Internal or Private, or -NetAdapterName for an external switch.','InvalidArgument');
+  const t=/^i/i.test(type)?'Internal':'Private';S.switches[m.name][n]={type:t};
+  table([{Name:n,SwitchType:t,NetAdapterInterfaceDescription:''}]);
+  if(t==='Internal')print(`The host now has a network adapter named "vEthernet (${n})".`,'d');
+  ev(m.name,'VmSwitch',0,`${t} switch ${n} created.`);
+},'Create a virtual switch');
+def(['Remove-VMSwitch'],'hyperv',(m,p)=>{needHV('Remove-VMSwitch',m);const n=P(p,'Name',0);const k=Object.keys(S.switches[m.name]||{}).find(x=>lc(x)===lc(n));if(!k)throw new PSErr('Remove-VMSwitch',`Hyper-V was unable to find a virtual switch with name "${n}".`,'ObjectNotFound');delete S.switches[m.name][k];if(m.set&&m.set.name===k)m.set=null;vmList(m.name).forEach(v=>v.nics.forEach(a=>{if(a.switch===k)a.switch=null}))});
+
+/* ---------- disks ---------- */
+def(['New-VHD'],'hyperv',async(m,p)=>{needHV('New-VHD',m);
+  const path=P(p,'Path',0),parent=P(p,'ParentPath'),size=P(p,'SizeBytes');
+  if(!path)throw new PSErr('New-VHD','Specify -Path.','InvalidArgument');
+  if(S.vhds[lc(path)])throw new PSErr('New-VHD',`The file '${path}' already exists.`,'ResourceExists');
+  if(parent){if(!GOLDEN[parent]&&!S.vhds[lc(parent)]&&!Object.keys(GOLDEN).some(g=>lc(g)===lc(parent)))throw new PSErr('New-VHD',`The system cannot find the file specified: '${parent}'. Golden images available: ${Object.keys(GOLDEN).join(', ')}`,'ObjectNotFound');
+    if(!P(p,'Differencing'))warn('-ParentPath implies a differencing disk; add -Differencing to be explicit.');
+    const gp=Object.keys(GOLDEN).find(g=>lc(g)===lc(parent))||parent;
+    S.vhds[lc(path)]={path,type:'Differencing',parent:gp,size:127*GB,host:m.name};}
+  else{if(!size)throw new PSErr('New-VHD','Specify -SizeBytes (for example 60GB) or -ParentPath with -Differencing.','InvalidArgument');S.vhds[lc(path)]={path,type:P(p,'Fixed')?'Fixed':'Dynamic',size,host:m.name};if(P(p,'Fixed')){print('Allocating the full size...','d');await sleep(1200)}}
+  const d=S.vhds[lc(path)];list([{ComputerName:m.name,Path:path,VhdFormat:'VHDX',VhdType:d.type,FileSize:d.type==='Fixed'?d.size:4194304,Size:d.size,ParentPath:d.parent||''}]);
+},'Create a VHDX (-ParentPath -Differencing for golden images)');
+def(['Get-VHD'],'hyperv',(m,p)=>{needHV('Get-VHD',m);const path=P(p,'Path',0);let ds=[];if(path){const d=S.vhds[lc(path)]||(GOLDEN[path]?{path,type:'Dynamic',size:127*GB}:null);if(!d)throw new PSErr('Get-VHD',`The system cannot find the file '${path}'.`,'ObjectNotFound');ds=[d]}else if(P(p,'VMId')||P(p,'VMName')){}
+  list(ds.map(d=>({Path:d.path,VhdFormat:'VHDX',VhdType:d.type,Size:d.size,ParentPath:d.parent||'',Attached:Object.values(S.vms).some(v=>lc(v.vhd||'')===lc(d.path))})))});
+
+/* ---------- VMs ---------- */
+def(['Get-VM'],'hyperv',(m,p)=>{needHV('Get-VM',m);const n=P(p,['Name','VMName'],0);const vs=n?vmsByName('Get-VM',n,m.name):vmList(m.name);return {objs:vs.map(v=>Object.assign(vmRow(v),{_vm:v,Generation:v.gen,ReplicationState:v.replication?v.replication.state:'Disabled',ReplicationHealth:v.replication?v.replication.health:'NotApplicable',IsClustered:!!v.clustered,Path:v.path,DynamicMemoryEnabled:v.dynamic,ProcessorCount:v.cpu})),cols:['Name','State','CPUUsage(%)','MemoryAssigned(M)','Uptime','Status','Version']}},'List VMs');
+def(['New-VM'],'hyperv',(m,p)=>{needHV('New-VM',m);
+  const n=P(p,'Name',0);if(!n)throw new PSErr('New-VM','Specify -Name.','InvalidArgument');
+  if(findVM(m.name,n))throw new PSErr('New-VM',`A virtual machine named '${n}' already exists on ${m.name}.`,'ResourceExists');
+  const gen=+(P(p,'Generation')||1),mem=P(p,'MemoryStartupBytes')||1*GB,vhdP=P(p,'VHDPath'),newP=P(p,'NewVHDPath'),sw=P(p,'SwitchName'),path=P(p,'Path');
+  if(vhdP&&!S.vhds[lc(vhdP)])throw new PSErr('New-VM',`The system cannot find the file '${vhdP}'. Create it first with New-VHD.`,'ObjectNotFound');
+  if(vhdP&&Object.values(S.vms).some(v=>lc(v.vhd||'')===lc(vhdP)))throw new PSErr('New-VM',`'${vhdP}' is already attached to another virtual machine.`);
+  if(sw&&!Object.keys(S.switches[m.name]||{}).some(k=>lc(k)===lc(sw)))throw new PSErr('New-VM',`Hyper-V was unable to find a virtual switch with name "${sw}".`,'ObjectNotFound');
+  if(newP){if(!P(p,'NewVHDSizeBytes'))throw new PSErr('New-VM','-NewVHDPath needs -NewVHDSizeBytes.','InvalidArgument');S.vhds[lc(newP)]={path:newP,type:'Dynamic',size:P(p,'NewVHDSizeBytes'),host:m.name}}
+  const swName=sw?Object.keys(S.switches[m.name]).find(k=>lc(k)===lc(sw)):null;
+  const v={id:uid++,name:String(n),parent:m.name,gen,mem,dynamic:false,cpu:1,state:'Off',booted:false,expose:false,vhd:vhdP||newP||null,nics:[{name:'Network Adapter',switch:swName,vlan:0,spoof:false}],path:path||(m.physical?'C:\\VMs':'C:\\ProgramData\\Microsoft\\Windows\\Hyper-V'),checkpoints:[]};
+  S.vms[v.id]=v;
+  table([{Name:v.name,State:'Off','CPUUsage(%)':0,'MemoryAssigned(M)':0,Uptime:'00:00:00',Status:'Operating normally',Version:'12.0'}]);
+  if(gen===1&&vhdP&&vhdRoot(vhdP))warn('This is a Generation 1 VM (the default when -Generation is omitted). The golden image is a UEFI/GPT disk and will only boot in a Generation 2 VM.');
+  if(path&&/clusterstorage/i.test(path)&&!(S.cluster&&S.cluster.disks.some(d=>d.csv)))warn(`${path} does not exist yet: there is no Cluster Shared Volume.`);
+},'Create a VM (-Generation 2, -MemoryStartupBytes, -VHDPath, -SwitchName)');
+def(['Remove-VM'],'hyperv',(m,p)=>{needHV('Remove-VM',m);vmsByName('Remove-VM',P(p,['Name','VMName'],0),m.name).forEach(v=>{if(v.state!=='Off')throw new PSErr('Remove-VM',`The virtual machine '${v.name}' must be turned off before it can be removed.`);if(v.clustered)throw new PSErr('Remove-VM',`'${v.name}' is a clustered role. Remove it from the cluster first (Remove-ClusterGroup).`);delete S.vms[v.id]})});
+def(['Start-VM'],'hyperv',async(m,p)=>{needHV('Start-VM',m);const vs=vmsByName('Start-VM',P(p,['Name','VMName'],0),m.name);
+  for(const v of vs){if(v.state==='Running')continue;
+    if(v.expose&&v.dynamic)throw new PSErr('Start-VM',`'${v.name}' failed to start. Dynamic memory is not supported for virtual machines with nested virtualization enabled. Use Set-VMMemory -DynamicMemoryEnabled $false.`);
+    if(usedMem(m.name)+v.mem>capMem(m.name))throw new PSErr('Start-VM',`'${v.name}' could not initialize. Not enough memory in the system to start the virtual machine ${v.name} (needs ${fmtBytes(v.mem)}, ${fmtBytes(Math.max(0,capMem(m.name)-usedMem(m.name)))} free on ${m.name}).`);
+    if(v.replicaOf)throw new PSErr('Start-VM',`'${v.name}' is a Replica virtual machine and cannot be started. Use Start-VMFailover.`);
+    v.state='Running';v.booted=false;ev(m.name,'18500',0,`'${v.name}' started successfully.`);
+    if(v.clustered&&S.cluster&&S.cluster.groups[v.name])S.cluster.groups[v.name].state='Online';
+    bootVM(v);
+  }
+  refresh();
+},'Start VMs (accepts several names: -Name A,B,C)');
+async function bootVM(v){
+  if(!hasOS(v)){if(v.parent===HOST)ev(v.name,'Boot',1,`${v.name}: ${v.gen===1?'Boot failure. Reboot and select proper Boot device (Generation 1 cannot boot a UEFI/GPT image).':'No operating system was loaded. Press a key to retry the boot sequence.'}`);refresh();return}
+  await sleep(3200);
+  if(v.state!=='Running'){return}
+  v.booted=true;ensureGuest(v);clusterRejoin(v.name);refresh();save();
+}
+def(['Stop-VM'],'hyperv',async(m,p)=>{needHV('Stop-VM',m);const vs=vmsByName('Stop-VM',P(p,['Name','VMName'],0),m.name);const off=!!P(p,'TurnOff');
+  for(const v of vs){if(v.state==='Off')continue;
+    const node=S.cluster&&S.cluster.nodes[v.name];
+    if(node&&node.state!=='Down'&&!off&&P(p,'Force')===undefined){print(`Shutting down cluster node ${v.name}: the cluster drains its roles first (drain on shutdown).`,'d');await drainNode(v.name,true)}
+    if(!off){print(`Shutting down ${v.name}...`,'d');await sleep(1400)}
+    v.state='Off';v.booted=false;if(S.ctx===v.name)S.ctx=HOST;
+    ev(m.name,'18504',0,`'${v.name}' was ${off?'turned off':'shut down'}.`);
+    if(v.clustered&&S.cluster&&S.cluster.groups[v.name])S.cluster.groups[v.name].state='Offline';
+    if(node)await nodeLost(v.name,off);
+  }
+  refresh();
+},'Shut down (-TurnOff = pull the plug)');
+def(['Restart-VM'],'hyperv',async(m,p)=>{needHV('Restart-VM',m);for(const v of vmsByName('Restart-VM',P(p,['Name','VMName'],0),m.name)){if(v.state!=='Running')continue;if(S.machines[v.name])await restartMachine(v.name)}});
+def(['Set-VMMemory'],'hyperv',(m,p)=>{needHV('Set-VMMemory',m);vmsByName('Set-VMMemory',P(p,['VMName','Name'],0),m.name).forEach(v=>{const dyn=P(p,'DynamicMemoryEnabled'),st=P(p,'StartupBytes');
+  if(dyn!==undefined&&v.state!=='Off'&&dyn!==v.dynamic)throw new PSErr('Set-VMMemory',`Failed to modify device 'Memory'. Dynamic memory cannot be enabled or disabled while '${v.name}' is running.`);
+  if(dyn===true&&v.expose)throw new PSErr('Set-VMMemory',`Dynamic memory is not supported for '${v.name}' because nested virtualization is enabled.`);
+  if(dyn!==undefined)v.dynamic=dyn;if(st){if(v.state!=='Off'&&st<v.mem&&!v.dynamic)throw new PSErr('Set-VMMemory','Memory can only be reduced while the VM is off (runtime resize can only add memory here).');v.mem=st}})},'Change memory (-StartupBytes, -DynamicMemoryEnabled)');
+def(['Get-VMMemory'],'hyperv',(m,p)=>{needHV('Get-VMMemory',m);table(vmsByName('Get-VMMemory',P(p,['VMName','Name'],0),m.name).map(v=>({VMName:v.name,DynamicMemoryEnabled:v.dynamic,Startup:v.mem,Minimum:v.dynamic?512*MB:v.mem,Maximum:v.dynamic?1048576*MB:v.mem})))});
+def(['Set-VMProcessor'],'hyperv',(m,p)=>{needHV('Set-VMProcessor',m);vmsByName('Set-VMProcessor',P(p,['VMName','Name'],0),m.name).forEach(v=>{const ex=P(p,'ExposeVirtualizationExtensions'),c=P(p,'Count');
+  if((ex!==undefined||c!==undefined)&&v.state!=='Off')throw new PSErr('Set-VMProcessor',`Failed to modify device 'Processor'. Cannot change the processor settings of '${v.name}' while it is running. Stop the VM first.`);
+  if(ex!==undefined){if(ex&&v.dynamic)throw new PSErr('Set-VMProcessor',`'${v.name}' uses dynamic memory, which is incompatible with nested virtualization. Run Set-VMMemory -VMName ${v.name} -DynamicMemoryEnabled $false first.`);v.expose=!!ex}
+  if(c!==undefined)v.cpu=+c})},'CPU count and -ExposeVirtualizationExtensions (VM must be off)');
+def(['Get-VMProcessor'],'hyperv',(m,p)=>{needHV('Get-VMProcessor',m);table(vmsByName('Get-VMProcessor',P(p,['VMName','Name'],0),m.name).map(v=>({VMName:v.name,Count:v.cpu,ExposeVirtualizationExtensions:v.expose,CompatibilityForMigrationEnabled:false})))});
+def(['Get-VMNetworkAdapter'],'hyperv',(m,p)=>{needHV('Get-VMNetworkAdapter',m);const vs=P(p,['VMName'],0)?vmsByName('Get-VMNetworkAdapter',P(p,['VMName'],0),m.name):vmList(m.name);const rows=[];vs.forEach(v=>v.nics.forEach(a=>{const g=S.machines[v.name];rows.push({Name:a.name,VMName:v.name,SwitchName:a.switch||'',MacAddressSpoofing:a.spoof?'On':'Off',Status:a.switch?'{Ok}':'{NotConnected}',IPAddresses:(v.booted&&g&&ROLE_OF[a.switch]&&PLAN[v.name]&&PLAN[v.name][ROLE_OF[a.switch]])?[PLAN[v.name][ROLE_OF[a.switch]]]:[]})}));table(rows)},'VM network adapters');
+def(['Add-VMNetworkAdapter'],'hyperv',(m,p)=>{needHV('Add-VMNetworkAdapter',m);const n=P(p,'Name')||'Network Adapter',sw=P(p,'SwitchName');
+  if(P(p,'ManagementOS'))throw new PSErr('Add-VMNetworkAdapter','Host vNICs (-ManagementOS) are covered in Module 05 of the lab guide; this simulator keeps one management vNIC per host.');
+  const swName=sw&&Object.keys(S.switches[m.name]||{}).find(k=>lc(k)===lc(sw));if(sw&&!swName)throw new PSErr('Add-VMNetworkAdapter',`Hyper-V was unable to find a virtual switch with name "${sw}".`,'ObjectNotFound');
+  vmsByName('Add-VMNetworkAdapter',P(p,['VMName'],0),m.name).forEach(v=>{if(v.nics.some(a=>lc(a.name)===lc(n)))throw new PSErr('Add-VMNetworkAdapter',`'${v.name}' already has a network adapter named '${n}'.`,'ResourceExists');if(v.state!=='Off'&&v.gen===1)throw new PSErr('Add-VMNetworkAdapter','Generation 1 VMs must be off to add network adapters.');v.nics.push({name:n,switch:swName||null,vlan:0,spoof:false})});afterNetChange()},'Add a vNIC (-VMName, -Name, -SwitchName)');
+def(['Connect-VMNetworkAdapter'],'hyperv',(m,p)=>{needHV('Connect-VMNetworkAdapter',m);const sw=P(p,'SwitchName');const swName=Object.keys(S.switches[m.name]||{}).find(k=>lc(k)===lc(sw));if(!swName)throw new PSErr('Connect-VMNetworkAdapter',`Hyper-V was unable to find a virtual switch with name "${sw}".`,'ObjectNotFound');const n=P(p,'Name');vmsByName('Connect-VMNetworkAdapter',P(p,['VMName'],0),m.name).forEach(v=>v.nics.filter(a=>!n||lc(a.name)===lc(n)).forEach(a=>a.switch=swName));afterNetChange()});
+def(['Set-VMNetworkAdapter'],'hyperv',(m,p)=>{needHV('Set-VMNetworkAdapter',m);const sp=P(p,'MacAddressSpoofing'),n=P(p,'Name');vmsByName('Set-VMNetworkAdapter',P(p,['VMName'],0),m.name).forEach(v=>v.nics.filter(a=>!n||lc(a.name)===lc(n)).forEach(a=>{if(sp!==undefined)a.spoof=/^on$/i.test(sp)||sp===true}))},'Adapter settings (-MacAddressSpoofing On)');
+def(['Get-VMNetworkAdapterVlan'],'hyperv',(m,p)=>{needHV('Get-VMNetworkAdapterVlan',m);const vs=P(p,['VMName'],0)?vmsByName('Get-VMNetworkAdapterVlan',P(p,['VMName'],0),m.name):vmList(m.name);const rows=[];vs.forEach(v=>v.nics.forEach(a=>rows.push({VMName:v.name,VMNetworkAdapterName:a.name,Mode:a.vlan?'Access':'Untagged',VlanList:a.vlan||''})));table(rows)},'VLAN settings of VM adapters');
+def(['Set-VMNetworkAdapterVlan'],'hyperv',(m,p)=>{needHV('Set-VMNetworkAdapterVlan',m);const n=P(p,'VMNetworkAdapterName');vmsByName('Set-VMNetworkAdapterVlan',P(p,['VMName'],0),m.name).forEach(v=>v.nics.filter(a=>!n||lc(a.name)===lc(n)).forEach(a=>{if(P(p,'Untagged'))a.vlan=0;else if(P(p,'Access')){a.vlan=+P(p,'VlanId')||0}}));afterNetChange()},'-Access -VlanId N, or -Untagged');
+def(['Checkpoint-VM'],'hyperv',async(m,p)=>{needHV('Checkpoint-VM',m);for(const v of vmsByName('Checkpoint-VM',P(p,['Name','VMName'],0),m.name)){await sleep(700);v.checkpoints.push({name:P(p,'SnapshotName')||`${v.name} - (${new Date().toLocaleString()})`,t:now()})}},'Take a checkpoint');
+def(['Get-VMCheckpoint','Get-VMSnapshot'],'hyperv',(m,p)=>{needHV('Get-VMCheckpoint',m);const vs=P(p,['VMName','Name'],0)?vmsByName('Get-VMCheckpoint',P(p,['VMName','Name'],0),m.name):vmList(m.name);const objs=[];vs.forEach(v=>v.checkpoints.forEach(c=>objs.push({VMName:v.name,Name:c.name,SnapshotType:'Standard',CreationTime:c.t,ParentSnapshotName:'',_cp:[v.id,c.name]})));return {objs,cols:['VMName','Name','SnapshotType','CreationTime','ParentSnapshotName']}},'List checkpoints');
+def(['Remove-VMCheckpoint','Remove-VMSnapshot'],'hyperv',async(m,p,input)=>{needHV('Remove-VMCheckpoint',m);let targets=[];
+  if(input&&input.length)targets=input.filter(o=>o._cp).map(o=>o._cp);
+  else{const n=P(p,'Name')||'*';const pat=new RegExp('^'+String(n).replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'.*')+'$','i');vmsByName('Remove-VMCheckpoint',P(p,['VMName'],0),m.name).forEach(v=>v.checkpoints.filter(c=>pat.test(c.name)).forEach(c=>targets.push([v.id,c.name])))}
+  for(const [id,n] of targets){const v=S.vms[id];v.checkpoints=v.checkpoints.filter(c=>c.name!==n)}
+  if(targets.length){print('Merging differencing disks (.avhdx) back into the parent...','d');await sleep(1200)}});
+
+/* ---------- AD ---------- */
+def(['Install-ADDSForest'],'addsdeploy',async(m,p)=>{
+  const d=P(p,'DomainName');if(!d)throw new PSErr('Install-ADDSForest','Specify -DomainName.','InvalidArgument');
+  if(m.isDC)throw new PSErr('Install-ADDSForest','This computer is already a domain controller.');
+  if(featureState(m,'AD-Domain-Services')!=='Installed')throw new PSErr('Install-ADDSForest','The AD-Domain-Services role is not installed.');
+  if(m.domain)throw new PSErr('Install-ADDSForest','This computer is joined to a domain. A new forest must be created on a workgroup server.');
+  if(lc(d)!==DOMAIN)warn(`The lab design (and the rest of the runbook) expects ${DOMAIN}. Continuing with ${d} would break later tasks, so the simulator uses ${DOMAIN}.`);
+  print('SafeModeAdministratorPassword: ********  (from the lab answer file)','d');
+  print('Validating environment and user input\n   All tests completed successfully\nInstalling new forest\n   Configuring DNS Server...\n   Creating directory partitions...','d');await sleep(2200);
+  warn('A delegation for this DNS server cannot be created because the authoritative parent zone cannot be found. (Expected for a new isolated forest.)');
+  table([{Message:'Operation completed successfully',Context:'DCPromo.General.1',RebootRequired:true,Status:'Success'}]);
+  m.pendingDC=true;print('The computer will restart to complete the promotion.','d');await restartMachine(m.name);
+},'Create a new forest (-DomainName hvlab.internal -InstallDns)');
+def(['Get-ADDomain'],'ad',m=>{if(!canAuth(m.name).ok&&!m.isDC)throw new PSErr('Get-ADDomain','Unable to contact the server. This may be because this server does not exist, it is currently down, or it does not have the Active Directory Web Services running.','ResourceUnavailable');list([{DNSRoot:DOMAIN,NetBIOSName:'HVLAB',DomainMode:'Windows2025Domain',PDCEmulator:'DC01.'+DOMAIN,ComputersContainer:'CN=Computers,DC=hvlab,DC=internal'}])});
+def(['Get-ADComputer'],'ad',(m,p)=>{const f=P(p,['Identity','Filter'],0);const rows=Object.values(S.machines).filter(x=>x.domain===DOMAIN||x.isDC).filter(x=>!f||f==='*'||lc(f)===lc(x.name)).map(x=>({Name:x.name,DNSHostName:lc(x.name)+'.'+DOMAIN,Enabled:true,DistinguishedName:`CN=${x.name},${x.isDC?'OU=Domain Controllers':'CN=Computers'},DC=hvlab,DC=internal`}));if(S.cluster)rows.push({Name:S.cluster.name,DNSHostName:lc(S.cluster.name)+'.'+DOMAIN,Enabled:true,DistinguishedName:`CN=${S.cluster.name},CN=Computers,DC=hvlab,DC=internal`});table(rows)});
+def(['Add-Computer'],null,async(m,p)=>{
+  const d=P(p,'DomainName',0);if(!d)throw new PSErr('Add-Computer','Specify -DomainName.','InvalidArgument');
+  if(m.physical)throw new PSErr('Add-Computer',`Keep ${HOST} out of the lab domain: it is the hypervisor for the domain controller itself.`);
+  if(m.isDC||m.domain===DOMAIN)throw new PSErr('Add-Computer',`Cannot add computer '${m.name}' to domain '${d}' because it is already in that domain.`);
+  if(lc(d)!==DOMAIN)throw new PSErr('Add-Computer',`Computer '${m.name}' failed to join domain '${d}': The specified domain either does not exist or could not be contacted.`);
+  await sleep(1200);
+  const dc=S.machines.DC01;
+  if(!dc||!dc.isDC)throw new PSErr('Add-Computer',`Computer '${m.name}' failed to join domain '${d}': The specified domain either does not exist or could not be contacted. (Is DC01 promoted yet?)`);
+  if(m.dns!==DCIP)throw new PSErr('Add-Computer',`Computer '${m.name}' failed to join domain '${d}': An Active Directory Domain Controller for the domain could not be contacted. The DNS server ${m.dns} could not resolve _ldap._tcp.dc._msdcs.${d}.`);
+  if(!reach(m.name,'DC01','Mgmt'))throw new PSErr('Add-Computer',`Computer '${m.name}' failed to join domain '${d}': The network path was not found. Check that ${m.name} and DC01 share the HVLAB-Mgmt switch and VLAN.`);
+  print(`Using credentials HVLAB\\Administrator from the lab answer file.`,'d');
+  m.pendingDomain=DOMAIN;
+  if(P(p,'Restart'))await restartMachine(m.name);else warn(`The changes will take effect after you restart the computer ${m.name}.`);
+},'Join the domain (-DomainName hvlab.internal -Restart)');
+
+/* ---------- iSCSI target (STOR01) ---------- */
+function needTarget(cmd,m){if(featureState(m,'FS-iSCSITarget-Server')!=='Installed')throw new PSErr(cmd,'The iSCSI Target Server role is not installed.')}
+def(['New-IscsiServerTarget'],'iscsitarget',(m,p)=>{needTarget('New-IscsiServerTarget',m);const n=P(p,'TargetName',0),ids=arr(P(p,'InitiatorIds'));if(!n)throw new PSErr('New-IscsiServerTarget','Specify -TargetName.','InvalidArgument');if(S.iscsi.targets[lc(n)])throw new PSErr('New-IscsiServerTarget',`The target '${n}' already exists.`,'ResourceExists');
+  ids.forEach(i=>{if(!/^(IPAddress|IQN|DNSName|MACAddress):/i.test(i))throw new PSErr('New-IscsiServerTarget',`Invalid initiator ID '${i}'. Use the form IPAddress:10.10.20.11 or IQN:iqn.1991-05.com.microsoft:hv01.hvlab.internal.`,'InvalidArgument')});
+  S.iscsi.targets[lc(n)]={name:n,ids:ids.map(String),luns:[]};
+  list([{TargetName:n,TargetIqn:`iqn.1991-05.com.microsoft:stor01-${lc(n)}-target`,InitiatorIds:ids,Status:'NotConnected',LunMappings:[]}]);
+  if(!ids.length)warn('No initiator IDs: no host can log on to this target until you add some with Set-IscsiServerTarget -InitiatorIds.');
+},'Create a target (-TargetName, -InitiatorIds "IPAddress:x")');
+def(['Set-IscsiServerTarget'],'iscsitarget',(m,p)=>{needTarget('Set-IscsiServerTarget',m);const t=S.iscsi.targets[lc(P(p,'TargetName',0))];if(!t)throw new PSErr('Set-IscsiServerTarget','The target was not found.','ObjectNotFound');if(P(p,'InitiatorIds'))t.ids=arr(P(p,'InitiatorIds')).map(String)});
+def(['Get-IscsiServerTarget'],'iscsitarget',m=>{needTarget('Get-IscsiServerTarget',m);list(Object.values(S.iscsi.targets).map(t=>({TargetName:t.name,InitiatorIds:t.ids,LunMappings:t.luns.map((l,i)=>`TargetName:${t.name};VHD:"${l}";LUN:${i}`),Status:connectedNodes(t).length?'Connected':'NotConnected'})))},'List targets');
+def(['New-IscsiVirtualDisk'],'iscsitarget',async(m,p)=>{needTarget('New-IscsiVirtualDisk',m);const path=P(p,'Path',0),sz=P(p,'SizeBytes',1);if(!path||!sz)throw new PSErr('New-IscsiVirtualDisk','Specify -Path and -SizeBytes.','InvalidArgument');if(S.iscsi.vdisks[lc(path)])throw new PSErr('New-IscsiVirtualDisk',`The file '${path}' already exists.`,'ResourceExists');await sleep(600);S.iscsi.vdisks[lc(path)]={path,size:sz,order:Object.keys(S.iscsi.vdisks).length};list([{ClonedFromPath:'',DiskType:'Dynamic',Path:path,Size:sz,Status:'NotConnected'}])},'Create a LUN (-Path, -SizeBytes)');
+def(['Add-IscsiVirtualDiskTargetMapping'],'iscsitarget',(m,p)=>{needTarget('Add-IscsiVirtualDiskTargetMapping',m);const t=S.iscsi.targets[lc(P(p,'TargetName',0))],path=P(p,'Path',1);if(!t)throw new PSErr('Add-IscsiVirtualDiskTargetMapping','The target was not found.','ObjectNotFound');const d=S.iscsi.vdisks[lc(path)];if(!d)throw new PSErr('Add-IscsiVirtualDiskTargetMapping',`The virtual disk '${path}' was not found.`,'ObjectNotFound');if(!t.ids)t.ids=[];if(!t.luns.includes(d.path))t.luns.push(d.path)},'Map a LUN to a target');
+def(['Get-IscsiVirtualDisk'],'iscsitarget',m=>{needTarget('Get-IscsiVirtualDisk',m);table(Object.values(S.iscsi.vdisks).map(d=>({Path:d.path,Size:d.size,Status:Object.values(S.iscsi.targets).some(t=>t.luns.includes(d.path)&&connectedNodes(t).length)?'Connected':'NotConnected'})))});
+
+/* ---------- iSCSI initiator ---------- */
+function storageIP(n){const x=nicByRole(n,'Storage');return x&&x.enabled?x.ip:null}
+function allowed(t,n){const ip=storageIP(n);return t.ids.some(i=>lc(i)===lc('IPAddress:'+ip)||lc(i)===lc(`IQN:iqn.1991-05.com.microsoft:${lc(n)}.${DOMAIN}`))}
+function portalOK(n){return reach(n,'STOR01','Storage')&&has(S.machines.STOR01,'FS-iSCSITarget-Server')}
+function connectedNodes(t){return Object.values(S.machines).filter(m=>m.iscsi.sessions.some(s=>s.target===lc(t.name))&&portalOK(m.name)&&allowed(t,m.name)).map(m=>m.name)}
+function lunsSeenBy(n){const m=S.machines[n];if(!m)return [];const r=[];m.iscsi.sessions.forEach(s=>{const t=S.iscsi.targets[s.target];if(t&&portalOK(n)&&allowed(t,n)&&machineUp(n))t.luns.forEach(l=>r.push(l))});return r}
+def(['New-IscsiTargetPortal'],null,async(m,p)=>{const a=P(p,'TargetPortalAddress',0);if(!a)throw new PSErr('New-IscsiTargetPortal','Specify -TargetPortalAddress.','InvalidArgument');await sleep(800);
+  const t=machineByIP(a);if(t!=='STOR01'||!reach(m.name,'STOR01','Storage'))throw new PSErr('New-IscsiTargetPortal',`Connection Failed. ${m.name} cannot reach ${a}:3260. Is this host connected to the HVLAB-Storage switch, and is the address on that network?`,'ConnectionError');
+  if(!has(S.machines.STOR01,'FS-iSCSITarget-Server'))throw new PSErr('New-IscsiTargetPortal','Connection Failed. Nothing is listening on port 3260 (iSCSI Target Server is not installed on STOR01).','ConnectionError');
+  if(!m.iscsi.portals.includes(a))m.iscsi.portals.push(a);list([{InitiatorInstanceName:'',InitiatorPortalAddress:'',IsDataDigest:false,TargetPortalAddress:a,TargetPortalPortNumber:3260}])},'Add the SAN portal (-TargetPortalAddress 10.10.20.30)');
+def(['Get-IscsiTarget'],null,m=>{const objs=m.iscsi.portals.length&&portalOK(m.name)?Object.values(S.iscsi.targets).filter(t=>allowed(t,m.name)).map(t=>({NodeAddress:`iqn.1991-05.com.microsoft:stor01-${lc(t.name)}-target`,IsConnected:m.iscsi.sessions.some(s=>s.target===lc(t.name)),_t:lc(t.name)})):[];if(m.iscsi.portals.length&&!objs.length)print('(no targets: either none exist or this initiator is not in any target\'s InitiatorIds)','d');return {objs,cols:['IsConnected','NodeAddress']}},'Discover targets');
+def(['Connect-IscsiTarget'],null,async(m,p,input)=>{let names=[];if(input&&input.length)names=input.map(o=>o._t).filter(Boolean);else{const na=P(p,'NodeAddress',0);const t=Object.values(S.iscsi.targets).find(t=>lc(`iqn.1991-05.com.microsoft:stor01-${lc(t.name)}-target`)===lc(na)||lc(t.name)===lc(na));if(!t)throw new PSErr('Connect-IscsiTarget','The target name is not found or is marked as hidden from login.','ObjectNotFound');names=[lc(t.name)]}
+  if(!names.length)throw new PSErr('Connect-IscsiTarget','No targets to connect. Run New-IscsiTargetPortal and check Get-IscsiTarget.','ObjectNotFound');
+  for(const n of names){const t=S.iscsi.targets[n];if(!allowed(t,m.name))throw new PSErr('Connect-IscsiTarget','Authorization Failure. This initiator is not in the target\'s InitiatorIds (LUN masking).','AuthenticationError');await sleep(600);
+    if(!m.iscsi.sessions.some(s=>s.target===n))m.iscsi.sessions.push({target:n,persistent:!!P(p,'IsPersistent'),mpio:!!P(p,'IsMultipathEnabled')});
+    list([{AuthenticationType:'NONE',InitiatorPortalAddress:storageIP(m.name),IsConnected:true,IsPersistent:!!P(p,'IsPersistent'),TargetNodeAddress:`iqn.1991-05.com.microsoft:stor01-${n}-target`}]);
+    if(!P(p,'IsPersistent'))warn('Session is not persistent: it will not reconnect after a reboot. Use -IsPersistent $true.');}
+  refresh()},'Log on to a target (-IsPersistent $true -IsMultipathEnabled $true)');
+def(['Get-IscsiSession'],null,m=>table(m.iscsi.sessions.map(s=>({TargetNodeAddress:`iqn.1991-05.com.microsoft:stor01-${s.target}-target`,InitiatorPortalAddress:storageIP(m.name)||'',IsConnected:portalOK(m.name)&&allowed(S.iscsi.targets[s.target],m.name),IsPersistent:s.persistent}))),'iSCSI sessions');
+def(['Enable-MSDSMAutomaticClaim'],'mpio',(m,p)=>{if(featureState(m,'Multipath-IO')!=='Installed')throw new PSErr('Enable-MSDSMAutomaticClaim','Multipath I/O is installed but the computer has not been restarted.');m.mpioClaim=true;warn('A restart is not required in this simulator; on real servers restart before connecting sessions.')},'Let MPIO claim iSCSI disks (-BusType iSCSI)');
+def(['Get-Disk'],null,m=>{const rows=[{Number:0,FriendlyName:'Msft Virtual Disk',BusType:'SCSI','Total Size':'127 GB',PartitionStyle:'GPT',OperationalStatus:'Online'}];lunsSeenBy(m.name).forEach((l,i)=>{const d=S.iscsi.vdisks[lc(l)];const cd=S.cluster&&S.cluster.disks.find(x=>x.lun===l);rows.push({Number:i+1,FriendlyName:'MSFT Virtual HD (iSCSI)',BusType:'iSCSI','Total Size':fmtBytes(d.size),PartitionStyle:'GPT',OperationalStatus:cd?(cd.csv?'Online':'Reserved'):'Online'})});table(rows)},'Disks seen by this machine');
+
+/* ---------- Failover clustering ---------- */
+function needClu(cmd){if(!S.cluster)throw new PSErr(cmd,'The cluster service is not running. Make sure that the service is running on all nodes in the cluster. (No cluster exists yet.)','ObjectNotFound')}
+function nodeOK(cmd,m){needClu(cmd);if(!S.cluster.nodes[m.name])throw new PSErr(cmd,`${m.name} is not a node of ${S.cluster.name}.`)}
+function upNodes(){return S.cluster?Object.keys(S.cluster.nodes).filter(n=>S.cluster.nodes[n].state!=='Down'):[]}
+function cluNetworks(nodes){const nets=[];const add=(role,addr,r)=>{if(nodes.every(n=>nicByRole(n,role)))nets.push({name:`Cluster Network ${nets.length+1}`,address:addr,role:r,kind:role})};add('Mgmt','10.10.0.0',3);add('Storage','10.10.20.0',0);add('Cluster','10.10.30.0',1);return nets}
+function sharedLuns(nodes){if(!nodes.length)return [];return lunsSeenBy(nodes[0]).filter(l=>nodes.every(n=>lunsSeenBy(n).includes(l)))}
+def(['Test-Cluster'],'cluster',async(m,p)=>{
+  const nodes=arr(P(p,'Node',0)).map(x=>String(x).replace(/\.hvlab\.internal$/i,'').toUpperCase());if(!nodes.length)throw new PSErr('Test-Cluster','Specify -Node.','InvalidArgument');
+  print('Validating cluster configuration...','d');await sleep(1800);
+  const warns=[],fails=[];
+  nodes.forEach(n=>{const x=S.machines[n];if(!x||!machineUp(n))return fails.push(`${n} could not be reached.`);
+    if(x.domain!==DOMAIN)fails.push(`${n} is not joined to ${DOMAIN}.`);
+    if(featureState(x,'Failover-Clustering')!=='Installed')fails.push(`The Failover Clustering feature is not installed on ${n}.`);
+    if(featureState(x,'Hyper-V')!=='Installed')warns.push(`Hyper-V is not installed on ${n}.`);
+    if(n!==m.name&&!reach(m.name,n,'Mgmt'))fails.push(`${m.name} cannot communicate with ${n} on the management network.`);
+    if(x.dns!==DCIP)fails.push(`${n} cannot resolve domain names: DNS server ${x.dns} is not responding.`);});
+  const shared=sharedLuns(nodes.filter(n=>machineUp(n)));
+  if(!shared.length)warns.push('No disks were found on which to perform cluster validation tests (Storage). Connect every node to the same iSCSI target first.');
+  const sw=nodes.map(n=>Object.keys(S.switches[n]||{}).sort().join(','));if(new Set(sw).size>1)warns.push('Hyper-V Configuration: the nodes do not have matching virtual switch names, so VMs could lose networking after failover.');
+  nodes.forEach(n=>{if(!nicByRole(n,'Cluster'))warns.push(`Network: ${n} has no dedicated cluster/live migration network. Nodes are connected by a single network path, a single point of failure.`)});
+  const res=fails.length?'Failed':warns.length?'ConditionallyApproved':'Passed';
+  print(`\nCategory                   Result\n--------                   ------\nInventory                  Success\nNetwork                    ${warns.some(w=>w.startsWith('Network'))?'Warning':'Success'}\nStorage                    ${shared.length?'Success':'Warning'}\nSystem Configuration       ${fails.length?'Failed':'Success'}\nHyper-V Configuration      ${warns.some(w=>w.startsWith('Hyper-V'))?'Warning':'Success'}\n`);
+  warns.forEach(w=>warn(w));fails.forEach(f=>print('FAILED: '+f,'e'));
+  print(`Test Result: ${res}\nReport file: C:\\Windows\\Cluster\\Reports\\Validation Report ${new Date().toISOString().slice(0,10)}.htm`,res==='Failed'?'e':res==='Passed'?'k':'w');
+  if(res!=='Failed')S.flags.testCluster=true;
+},'Validate nodes (-Node HV01,HV02)');
+def(['New-Cluster'],'cluster',async(m,p)=>{
+  const name=P(p,'Name',0),nodes=arr(P(p,'Node')).map(x=>String(x).toUpperCase()),ip=P(p,'StaticAddress');
+  if(!name||!nodes.length)throw new PSErr('New-Cluster','Specify -Name and -Node.','InvalidArgument');
+  if(S.cluster)throw new PSErr('New-Cluster',`A cluster named ${S.cluster.name} already exists.`,'ResourceExists');
+  if(!nodes.includes(m.name))throw new PSErr('New-Cluster','Run New-Cluster on one of the nodes being clustered.');
+  if(!ip)throw new PSErr('New-Cluster','The lab network has no DHCP for servers. Specify -StaticAddress 10.10.0.50.','InvalidArgument');
+  for(const n of nodes){const x=S.machines[n];if(!x||!machineUp(n))throw new PSErr('New-Cluster',`There was an error validating ${n}: the node could not be reached.`);
+    if(featureState(x,'Failover-Clustering')!=='Installed')throw new PSErr('New-Cluster',`The Failover Clustering feature is not installed on node ${n}.`);
+    if(x.domain!==DOMAIN)throw new PSErr('New-Cluster',`Node ${n} is not joined to a domain. Clusters with Kerberos authentication require domain-joined nodes.`);
+    const a=canAuth(n);if(!a.ok)throw new PSErr('New-Cluster',`There was an error creating the cluster name object in Active Directory: ${n} cannot contact a domain controller (${a.why==='dns'?'its DNS server '+x.dns+' does not answer':'network path not found'}).`);
+    if(n!==m.name&&!reach(m.name,n,'Mgmt'))throw new PSErr('New-Cluster',`Unable to communicate with ${n} on the management network.`)}
+  if(machineByIP(ip))throw new PSErr('New-Cluster',`The address ${ip} is already in use on the network.`);
+  print('Forming cluster: creating the cluster name object in AD, registering DNS, starting the cluster service on each node...','d');await sleep(2500);
+  S.cluster={name:String(name).toUpperCase(),ip,nodes:{},networks:cluNetworks(nodes),disks:[],quorum:{type:'NodeMajority',res:null},groups:{},broker:null};
+  nodes.forEach(n=>S.cluster.nodes[n]={state:'Up'});
+  if(!P(p,'NoStorage')){sharedLuns(nodes).forEach(l=>addClusterDisk(l))}
+  table([{Name:S.cluster.name}]);
+  warn('There were issues while creating the clustered role that may prevent it from starting. (none)'.replace(' (none)',''));
+  if(nodes.length===2&&!S.cluster.disks.length)warn(`The cluster ${S.cluster.name} has an even number of nodes and no witness. Configure a witness with Set-ClusterQuorum before running workloads.`);
+  ev(S.cluster.name,'1069'.replace('1069','5'),0,`Cluster ${S.cluster.name} created with nodes ${nodes.join(', ')} at ${ip}.`);
+},'Create a cluster (-Name -Node -StaticAddress -NoStorage)');
+function addClusterDisk(lun){const n=S.cluster.disks.length+1;const d={name:`Cluster Disk ${n}`,lun,size:S.iscsi.vdisks[lc(lun)].size,group:'Available Storage',csv:null};S.cluster.disks.push(d);return d}
+def(['Get-Cluster'],'cluster',m=>{nodeOK('Get-Cluster',m);table([{Name:S.cluster.name}])},'The cluster');
+def(['Get-ClusterNode'],'cluster',m=>{nodeOK('Get-ClusterNode',m);table(Object.entries(S.cluster.nodes).map(([n,x],i)=>({Name:n,ID:i+1,State:x.state})))},'Node states');
+def(['Get-ClusterNetwork'],'cluster',m=>{nodeOK('Get-ClusterNetwork',m);table(S.cluster.networks.map(x=>({Name:x.name,State:upNodes().length?'Up':'Down',Role:x.role===3?'ClusterAndClient':x.role===1?'Cluster':'None',Address:x.address})))},'Cluster networks and roles');
+def(['Get-ClusterAvailableDisk'],'cluster',m=>{nodeOK('Get-ClusterAvailableDisk',m);const used=S.cluster.disks.map(d=>d.lun);const objs=sharedLuns(upNodes()).filter(l=>!used.includes(l)).sort((a,b)=>S.iscsi.vdisks[lc(a)].order-S.iscsi.vdisks[lc(b)].order).map((l,i)=>({Cluster:S.cluster.name,Name:'Cluster Disk '+(S.cluster.disks.length+i+1),Number:i+1,Size:S.iscsi.vdisks[lc(l)].size,Partitions:['\\\\?\\GLOBALROOT\\Device\\Harddisk'+(i+1)+'\\Partition2\\'],_lun:l}));if(!objs.length)print('(no available disks: every node must see the same LUNs)','d');return {objs,cols:['Cluster','Name','Number','Size']}},'Shared disks not yet in the cluster');
+def(['Add-ClusterDisk'],'cluster',(m,p,input)=>{nodeOK('Add-ClusterDisk',m);if(!input||!input.length)throw new PSErr('Add-ClusterDisk','Pipe disks into this cmdlet: Get-ClusterAvailableDisk | Add-ClusterDisk','InvalidArgument');const rows=input.filter(o=>o._lun).map(o=>addClusterDisk(o._lun)).map(d=>({Name:d.name,State:'Online',OwnerGroup:'Available Storage',ResourceType:'Physical Disk'}));table(rows)},'Add disks (pipe from Get-ClusterAvailableDisk)');
+def(['Get-ClusterResource'],'cluster',m=>{nodeOK('Get-ClusterResource',m);const rows=[{Name:'Cluster IP Address',State:'Online',OwnerGroup:'Cluster Group',ResourceType:'IP Address'},{Name:'Cluster Name',State:'Online',OwnerGroup:'Cluster Group',ResourceType:'Network Name'}];
+  S.cluster.disks.filter(d=>!d.csv).forEach(d=>rows.push({Name:d.name,State:diskOnline(d)?'Online':'Failed',OwnerGroup:d.group,ResourceType:'Physical Disk',Size:fmtBytes(d.size)}));
+  Object.entries(S.cluster.groups).forEach(([n,g])=>{if(g.type==='VirtualMachine')rows.push({Name:'Virtual Machine '+n,State:g.state==='Online'?'Online':'Offline',OwnerGroup:n,ResourceType:'Virtual Machine'});else{rows.push({Name:n,State:g.state,OwnerGroup:n,ResourceType:'Network Name'});if(g.type==='VMReplicaBroker')rows.push({Name:'Virtual Machine Replication Broker',State:g.state,OwnerGroup:n,ResourceType:'Virtual Machine Replication Broker'})}});
+  table(rows,['Name','State','OwnerGroup','ResourceType','Size'])},'Cluster resources (disks show their size)');
+function diskOnline(d){return upNodes().some(n=>lunsSeenBy(n).includes(d.lun))}
+def(['Set-ClusterQuorum'],'cluster',async(m,p)=>{nodeOK('Set-ClusterQuorum',m);const dw=P(p,'DiskWitness'),fsw=P(p,'FileShareWitness');
+  if(dw){const d=S.cluster.disks.find(x=>lc(x.name)===lc(dw));if(!d)throw new PSErr('Set-ClusterQuorum',`The cluster resource '${dw}' could not be found.`,'ObjectNotFound');if(d.csv)throw new PSErr('Set-ClusterQuorum',`'${dw}' is a Cluster Shared Volume and cannot be the witness.`);
+    if(d.size>5*GB)warn(`${d.name} is ${fmtBytes(d.size)}. A witness only needs about 1 GB, so the large LUN is usually kept for a CSV.`);
+    S.cluster.disks.forEach(x=>{if(x.group==='Cluster Group')x.group='Available Storage'});d.group='Cluster Group';S.cluster.quorum={type:'NodeAndDiskMajority',res:d.name}}
+  else if(fsw){if(!reach(m.name,'DC01','Mgmt'))throw new PSErr('Set-ClusterQuorum',`The file share '${fsw}' is not reachable.`);S.cluster.quorum={type:'NodeAndFileShareMajority',res:fsw}}
+  else if(P(p,'NodeMajority')||P(p,'NoWitness')){S.cluster.quorum={type:'NodeMajority',res:null};S.cluster.disks.forEach(x=>{if(x.group==='Cluster Group')x.group='Available Storage'})}
+  else throw new PSErr('Set-ClusterQuorum','Specify -DiskWitness, -FileShareWitness or -NoWitness.','InvalidArgument');
+  await sleep(500);table([{Cluster:S.cluster.name,QuorumResource:S.cluster.quorum.res||'',QuorumType:S.cluster.quorum.type}])},'Configure the witness (-DiskWitness "Cluster Disk N")');
+def(['Get-ClusterQuorum'],'cluster',m=>{nodeOK('Get-ClusterQuorum',m);list([{Cluster:S.cluster.name,QuorumResource:S.cluster.quorum.res||'',QuorumType:S.cluster.quorum.type}])});
+def(['Add-ClusterSharedVolume'],'cluster',async(m,p)=>{nodeOK('Add-ClusterSharedVolume',m);const n=P(p,'Name',0);const d=S.cluster.disks.find(x=>lc(x.name)===lc(n));if(!d)throw new PSErr('Add-ClusterSharedVolume',`The cluster resource '${n}' could not be found.`,'ObjectNotFound');if(d.group==='Cluster Group')throw new PSErr('Add-ClusterSharedVolume',`'${d.name}' is the quorum witness and cannot be a Cluster Shared Volume.`);if(d.csv)throw new PSErr('Add-ClusterSharedVolume',`'${d.name}' is already a Cluster Shared Volume.`);
+  await sleep(700);const i=S.cluster.disks.filter(x=>x.csv).length+1;d.csv=`C:\\ClusterStorage\\Volume${i}`;d.group='Cluster Shared Volume';
+  if(d.size<20*GB)warn(`${d.name} is only ${fmtBytes(d.size)}, too small to hold many VMs.`);
+  table([{Name:d.name,State:'Online',Node:upNodes()[0]}]);print(`Mounted on every node at ${d.csv}`,'d')},'Turn a disk into a CSV');
+def(['Get-ClusterSharedVolume'],'cluster',m=>{nodeOK('Get-ClusterSharedVolume',m);table(S.cluster.disks.filter(d=>d.csv).map(d=>({Name:d.name,State:diskOnline(d)?'Online':'Failed',Node:upNodes()[0]||'',Path:d.csv})))},'CSVs');
+def(['Get-ClusterSharedVolumeState'],'cluster',m=>{nodeOK('Get-ClusterSharedVolumeState',m);const rows=[];S.cluster.disks.filter(d=>d.csv).forEach(d=>upNodes().forEach(n=>{const direct=lunsSeenBy(n).includes(d.lun);rows.push({Name:d.name,Node:n,StateInfo:direct?'Direct':'FileSystemRedirected',FileSystemRedirectedIOReason:direct?'NotFileSystemRedirected':'NoDiskConnectivity',BlockRedirectedIOReason:direct?'NotBlockRedirected':'NoDiskConnectivity'})}));list(rows)},'Is CSV I/O direct or redirected per node?');
+function onCSV(path){return S.cluster&&S.cluster.disks.some(d=>d.csv&&lc(path||'').startsWith(lc(d.csv)))}
+def(['Add-ClusterVirtualMachineRole'],'cluster',(m,p)=>{nodeOK('Add-ClusterVirtualMachineRole',m);const n=P(p,['VMName','Name'],0);let v=null;for(const x of upNodes()){v=findVM(x,n);if(v)break}
+  if(!v)throw new PSErr('Add-ClusterVirtualMachineRole',`The virtual machine '${n}' was not found on any node of ${S.cluster.name}.`,'ObjectNotFound');
+  if(v.clustered)throw new PSErr('Add-ClusterVirtualMachineRole',`'${v.name}' is already a clustered role.`,'ResourceExists');
+  if(!onCSV(v.path)||(v.vhd&&!onCSV(v.vhd)))throw new PSErr('Add-ClusterVirtualMachineRole',`The virtual machine '${v.name}' is stored on local storage (${v.path}). Highly available VMs must keep their configuration and disks on storage every node can reach, such as C:\\ClusterStorage\\Volume1.`);
+  v.clustered=true;S.cluster.groups[v.name]={type:'VirtualMachine',owner:v.parent,state:v.state==='Running'?'Online':'Off',priority:2000};
+  table([{Name:v.name,OwnerNode:v.parent,State:S.cluster.groups[v.name].state}]);ev(S.cluster.name,'Rcm',0,`Clustered role '${v.name}' created.`)},'Make a VM highly available');
+def(['Get-ClusterGroup'],'cluster',(m,p)=>{nodeOK('Get-ClusterGroup',m);const n=P(p,'Name',0);const rows=[{Name:'Available Storage',OwnerNode:upNodes()[0]||'',State:'Online'},{Name:'Cluster Group',OwnerNode:upNodes()[0]||'',State:upNodes().length?'Online':'Offline'}];Object.entries(S.cluster.groups).forEach(([k,g])=>rows.push({Name:k,OwnerNode:g.owner,State:g.state}));table(rows.filter(r=>!n||lc(r.Name)===lc(n)))},'Clustered roles and owners');
+def(['Start-ClusterGroup'],'cluster',async(m,p)=>{nodeOK('Start-ClusterGroup',m);const n=P(p,'Name',0);const g=S.cluster.groups[Object.keys(S.cluster.groups).find(k=>lc(k)===lc(n))];if(!g)throw new PSErr('Start-ClusterGroup',`The cluster group '${n}' could not be found.`,'ObjectNotFound');const name=Object.keys(S.cluster.groups).find(k=>lc(k)===lc(n));
+  if(g.type==='VirtualMachine'){const v=findVM(g.owner,name);if(usedMem(g.owner)+v.mem>capMem(g.owner))throw new PSErr('Start-ClusterGroup',`Failed to bring '${name}' online on ${g.owner}: not enough memory on the node.`);v.state='Running';g.state='Online'}
+  else if(g.type==='ClientAccessPoint'){g.state='Online'}else{g.state='Online';S.cluster.broker=name}
+  await sleep(600);table([{Name:name,OwnerNode:g.owner,State:'Online'}]);refresh()},'Bring a role online');
+def(['Stop-ClusterGroup'],'cluster',(m,p)=>{nodeOK('Stop-ClusterGroup',m);const n=P(p,'Name',0);const name=Object.keys(S.cluster.groups).find(k=>lc(k)===lc(n));if(!name)throw new PSErr('Stop-ClusterGroup',`The cluster group '${n}' could not be found.`,'ObjectNotFound');const g=S.cluster.groups[name];g.state='Offline';if(g.type==='VirtualMachine'){const v=findVM(g.owner,name);if(v)v.state='Off'}if(g.type==='VMReplicaBroker'&&S.cluster.broker===name)S.cluster.broker=null;table([{Name:name,OwnerNode:g.owner,State:'Offline'}])});
+async function liveMigrate(name,target,quiet){
+  const g=S.cluster.groups[name];const v=findVM(g.owner,name);
+  if(g.owner===target)throw new PSErr('Move-ClusterVirtualMachineRole',`'${name}' is already owned by ${target}.`);
+  const tn=S.cluster.nodes[target];if(!tn||tn.state==='Down')throw new PSErr('Move-ClusterVirtualMachineRole',`The node ${target} is not available (state: ${tn?tn.state:'unknown'}).`);
+  if(tn.state==='Paused')throw new PSErr('Move-ClusterVirtualMachineRole',`The cluster node ${target} is paused. A paused node cannot own roles: resume it with Resume-ClusterNode.`);
+  const ta=S.machines[target];if(ta.dns!==DCIP)throw new PSErr('Move-ClusterVirtualMachineRole',`Live migration of '${name}' failed. Failed to authenticate the connection at the destination host ${target}: no suitable credentials available (Kerberos error 0x8009030E). The destination cannot locate a domain controller.`);
+  const lm=S.cluster.networks.filter(x=>x.role>0);if(!lm.length)throw new PSErr('Move-ClusterVirtualMachineRole','No cluster network is available for live migration.');
+  if(v&&v.state==='Running'&&usedMem(target)+v.mem>capMem(target))throw new PSErr('Move-ClusterVirtualMachineRole',`Live migration of '${name}' failed: ${target} does not have enough free memory (${fmtBytes(capMem(target)-usedMem(target))} free, ${fmtBytes(v.mem)} needed).`);
+  if(!quiet)for(const pc of [27,64,100]){print(`  Live migrating ${name} to ${target} over the ${lm.find(x=>x.kind==='Cluster')?'Cluster':'Mgmt'} network... ${pc}%`,'d');await sleep(500)}
+  if(v)v.parent=target;g.owner=target;ev(S.cluster.name,'21002'.slice(0,0)+'Rcm',0,`Live migration of '${name}' to ${target} completed.`);
+}
+def(['Move-ClusterVirtualMachineRole'],'cluster',async(m,p)=>{nodeOK('Move-ClusterVirtualMachineRole',m);const n=P(p,'Name',0),t=String(P(p,'Node',1)||'').toUpperCase();const name=Object.keys(S.cluster.groups).find(k=>lc(k)===lc(n));if(!name)throw new PSErr('Move-ClusterVirtualMachineRole',`The cluster group '${n}' could not be found.`,'ObjectNotFound');if(!t)throw new PSErr('Move-ClusterVirtualMachineRole','Specify -Node.','InvalidArgument');
+  const type=P(p,'MigrationType')||'Live';if(/quick/i.test(type)){print(`  Saving ${name}...`,'d');await sleep(900);const g=S.cluster.groups[name],v=findVM(g.owner,name);if(v)v.parent=t;g.owner=t;print(`  Resumed ${name} on ${t}.`,'d')}else await liveMigrate(name,t);
+  S.flags.liveMigrated=true;table([{Name:name,OwnerNode:t,State:'Online'}]);refresh()},'Live-migrate a role (-Name -Node -MigrationType Live)');
+async function drainNode(n,quiet){const others=()=>upNodes().filter(x=>x!==n&&S.cluster.nodes[x].state==='Up');
+  for(const [name,g] of Object.entries(S.cluster.groups)){if(g.owner!==n)continue;const t=others()[0];if(!t)throw new PSErr('Suspend-ClusterNode',`No other node is available to take '${name}'.`);if(g.type==='VirtualMachine'&&g.state==='Online'){await liveMigrate(name,t,quiet)}else{const v=findVM(g.owner,name);if(v)v.parent=t;g.owner=t}g.drainedFrom=n}}
+def(['Suspend-ClusterNode'],'cluster',async(m,p)=>{nodeOK('Suspend-ClusterNode',m);const n=String(P(p,'Name',0)||m.name).toUpperCase();const x=S.cluster.nodes[n];if(!x)throw new PSErr('Suspend-ClusterNode',`Node ${n} not found.`,'ObjectNotFound');if(P(p,'Drain')){print(`Draining roles from ${n}...`,'d');await drainNode(n);S.flags.drained=true}x.state='Paused';ev(S.cluster.name,'Rcm',0,`Node ${n} paused${P(p,'Drain')?' and drained':''}.`);table([{Name:n,State:'Paused'}]);refresh()},'Pause a node (-Drain moves its roles)');
+def(['Resume-ClusterNode'],'cluster',async(m,p)=>{nodeOK('Resume-ClusterNode',m);const n=String(P(p,'Name',0)||m.name).toUpperCase();const x=S.cluster.nodes[n];if(!x)throw new PSErr('Resume-ClusterNode',`Node ${n} not found.`,'ObjectNotFound');if(x.state!=='Paused')throw new PSErr('Resume-ClusterNode',`Node ${n} is not paused (state: ${x.state}).`);x.state='Up';if(S.flags.drained)S.flags.resumed=true;
+  if(/immediate/i.test(P(p,'Failback')||'')){for(const [name,g] of Object.entries(S.cluster.groups)){if(g.drainedFrom===n&&g.owner!==n){if(g.type==='VirtualMachine'&&g.state==='Online')await liveMigrate(name,n);else{g.owner=n}}delete g.drainedFrom}}
+  table([{Name:n,State:'Up'}]);refresh()},'Resume a node (-Failback Immediate)');
+async function nodeLost(n,hard){if(!S.cluster||!S.cluster.nodes[n])return;const node=S.cluster.nodes[n];if(node.state==='Down')return;node.state='Down';
+  ev(S.cluster.name,'1135',2,`Cluster node '${n}' was removed from the active failover cluster membership.`);
+  const ups=upNodes();const total=Object.keys(S.cluster.nodes).length+(S.cluster.quorum.res?1:0);
+  let votes=ups.length+(S.cluster.quorum.res&&(S.cluster.quorum.type!=='NodeAndDiskMajority'||ups.some(u=>{const d=S.cluster.disks.find(x=>x.name===S.cluster.quorum.res);return d&&lunsSeenBy(u).includes(d.lun)}))?1:0);
+  let survive=votes*2>total;
+  if(!S.cluster.quorum.res&&ups.length===1&&Object.keys(S.cluster.nodes).length===2){survive=ups[0]==='HV01';ev(S.cluster.name,'Quorum',1,`No witness: dynamic quorum gave the tie-breaker vote to HV01, so the cluster ${survive?'survives':'loses quorum'}.`)}
+  if(!survive){ev(S.cluster.name,'1177',2,`The Cluster service is shutting down because quorum was lost. All clustered roles are offline.`);Object.values(S.cluster.groups).forEach(g=>g.state='Offline');Object.values(S.vms).forEach(v=>{if(v.clustered)v.state='Off'});print(`ALERT: ${S.cluster.name} lost quorum. Every clustered VM is offline. (Hint: a witness would have kept it running.)`,'e');refresh();return}
+  if(!hard)return;
+  for(const [name,g] of Object.entries(S.cluster.groups)){if(g.owner!==n)continue;const t=ups.find(u=>S.cluster.nodes[u].state==='Up')||ups[0];if(!t)continue;const v=findVM(n,name);
+    ev(S.cluster.name,'1069',2,`Cluster resource 'Virtual Machine ${name}' in clustered role '${name}' failed.`);await sleep(1200);
+    if(v){v.parent=t;if(g.state==='Online'){if(usedMem(t)+v.mem<=capMem(t)){v.state='Running';g.state='Online';ev(S.cluster.name,'1201'.slice(0,0)+'Rcm',0,`'${name}' restarted on ${t} after failover.`);S.flags.failoverSurvived=true}else{g.state='Failed';v.state='Off';ev(S.cluster.name,'1205',2,`The Cluster service failed to bring clustered role '${name}' online on ${t}: insufficient memory.`)}}}g.owner=t}
+  print(`EVENT: ${n} went down. Its clustered roles were restarted on the surviving node. Check the Events tab.`,'w');refresh()}
+function clusterRejoin(n){if(S.cluster&&S.cluster.nodes[n]&&S.cluster.nodes[n].state==='Down'){S.cluster.nodes[n].state='Up';ev(S.cluster.name,'Rcm',0,`Cluster node '${n}' joined the cluster.`);if(!upNodes().filter(x=>x!==n).length){}refresh()}}
+def(['Add-ClusterServerRole'],'cluster',(m,p)=>{nodeOK('Add-ClusterServerRole',m);const n=P(p,'Name',0),ip=P(p,'StaticAddress');if(!n||!ip)throw new PSErr('Add-ClusterServerRole','Specify -Name and -StaticAddress.','InvalidArgument');S.cluster.groups[String(n).toUpperCase()]={type:'ClientAccessPoint',owner:upNodes()[0],state:'Offline',ip};table([{Name:String(n).toUpperCase(),OwnerNode:upNodes()[0],State:'Offline'}])},'Client access point (for the Replica Broker)');
+def(['Add-ClusterResource'],'cluster',(m,p)=>{nodeOK('Add-ClusterResource',m);const type=P(p,'Type')||P(p,'ResourceType'),grp=P(p,'Group');const k=Object.keys(S.cluster.groups).find(x=>lc(x)===lc(grp||''));if(!k)throw new PSErr('Add-ClusterResource',`The group '${grp}' could not be found. Create it with Add-ClusterServerRole.`,'ObjectNotFound');if(!/replication broker/i.test(type||''))throw new PSErr('Add-ClusterResource',`The simulator supports -Type "Virtual Machine Replication Broker".`,'InvalidArgument');S.cluster.groups[k].type='VMReplicaBroker';table([{Name:P(p,'Name',0)||'Virtual Machine Replication Broker',State:'Offline',OwnerGroup:k,ResourceType:'Virtual Machine Replication Broker'}])},'Add the Replica Broker resource');
+
+/* ---------- Hyper-V Replica ---------- */
+def(['Set-VMReplicationServer'],'hyperv',(m,p)=>{needHV('Set-VMReplicationServer',m);const r=m.hv.replica||{enabled:false,auth:'Kerberos',any:false,path:'C:\\ReplicaStorage'};if(P(p,'ReplicationEnabled')!==undefined)r.enabled=!!P(p,'ReplicationEnabled');if(P(p,'AllowedAuthenticationType'))r.auth=P(p,'AllowedAuthenticationType');if(P(p,'ReplicationAllowedFromAnyServer')!==undefined)r.any=!!P(p,'ReplicationAllowedFromAnyServer');if(P(p,'DefaultStorageLocation'))r.path=P(p,'DefaultStorageLocation');m.hv.replica=r;if(r.enabled&&!m.fw.replica)warn(`The inbound firewall rule "${FW_REPLICA}" is disabled, so primary servers cannot connect yet.`)},'Make this host a Replica server');
+def(['Get-VMReplicationServer'],'hyperv',m=>{needHV('Get-VMReplicationServer',m);const r=m.hv.replica||{};list([{ComputerName:m.name,RepEnabled:!!r.enabled,AuthType:r.auth||'Kerberos',KerbAuthPort:80,AllowAnyServer:!!r.any,DefaultStorageLocation:r.path||''}])});
+function replicaHealth(v){const r=v.replication;if(!r)return null;const rs=S.machines[r.server];if(!rs||!machineUp(r.server)||!reach(v.parent,r.server,'Mgmt')||!rs.fw.replica||!rs.hv.replica||!rs.hv.replica.enabled)return 'Critical';if(r.state==='WaitingForInitialReplication')return 'Warning';return 'Normal'}
+def(['Enable-VMReplication'],'hyperv',async(m,p)=>{needHV('Enable-VMReplication',m);const n=P(p,['VMName','Name'],0),srv=String(P(p,'ReplicaServerName',1)||'').replace(/\.hvlab\.internal$/i,'').toUpperCase();
+  const v=findVM(m.name,n);if(!v)throw new PSErr('Enable-VMReplication',`Hyper-V was unable to find a virtual machine with name "${n}" on ${m.name}. Run this on the node that currently owns the VM.`,'ObjectNotFound');
+  if(!srv)throw new PSErr('Enable-VMReplication','Specify -ReplicaServerName.','InvalidArgument');
+  if(v.replication)throw new PSErr('Enable-VMReplication',`Replication is already enabled for '${v.name}'.`);
+  if(v.clustered&&!(S.cluster&&S.cluster.broker))throw new PSErr('Enable-VMReplication',`'${v.name}' is highly available, but ${S.cluster?S.cluster.name:'the cluster'} has no Hyper-V Replica Broker role online. Configure the broker first.`);
+  await sleep(1000);
+  const rs=S.machines[srv];const r=resolveName(m.name,srv);if(r.err||!rs)throw new PSErr('Enable-VMReplication',`Hyper-V failed to enable replication: the Replica server '${srv}' could not be resolved.`);
+  if(!reach(m.name,srv,'Mgmt')||!rs.fw.replica)throw new PSErr('Enable-VMReplication',`Hyper-V cannot connect to the specified Replica server '${srv}'. Error: A connection with the server could not be established (0x00002EFD). Verify that the specified server is enabled as a Replica server, allows inbound TCP 80, and is reachable.`,'ConnectionError');
+  if(!rs.hv.replica||!rs.hv.replica.enabled)throw new PSErr('Enable-VMReplication',`The Hyper-V server '${srv}' is not configured to receive replication. Run Set-VMReplicationServer -ReplicationEnabled $true on it.`);
+  if(!/kerb/i.test(P(p,'AuthenticationType')||'Kerberos'))throw new PSErr('Enable-VMReplication','Certificate authentication needs a certificate thumbprint; use -AuthenticationType Kerberos inside the domain.');
+  v.replication={mode:'Primary',server:srv,state:'WaitingForInitialReplication',health:'Warning',freq:+(P(p,'ReplicationFrequencySec')||300)};
+  const rep={id:uid++,name:v.name,parent:srv,gen:v.gen,mem:v.mem,dynamic:false,cpu:1,state:'Off',booted:false,expose:false,vhd:null,nics:[{name:'Network Adapter',switch:null,vlan:0}],path:rs.hv.replica.path,checkpoints:[],replicaOf:v.id,replication:{mode:'Replica',server:srv,state:'WaitingForInitialReplication'}};S.vms[rep.id]=rep;
+  ev(m.name,'Replica',0,`Replication enabled for '${v.name}' to ${srv}. Waiting for initial replication.`);refresh()},'Enable replication (-VMName -ReplicaServerName -ReplicaServerPort 80 -AuthenticationType Kerberos)');
+def(['Start-VMInitialReplication'],'hyperv',async(m,p)=>{needHV('Start-VMInitialReplication',m);const v=findVM(m.name,P(p,['VMName','Name'],0));if(!v||!v.replication)throw new PSErr('Start-VMInitialReplication','Replication is not enabled for this virtual machine on this host.','ObjectNotFound');print('Sending the initial copy over the network...','d');await sleep(1800);if(replicaHealth(v)==='Critical')throw new PSErr('Start-VMInitialReplication','Initial replication failed: the Replica server is not reachable on port 80.');v.replication.state='Replicating';const rep=Object.values(S.vms).find(x=>x.replicaOf===v.id);if(rep)rep.replication.state='Replicating';ev(m.name,'Replica',0,`Initial replication of '${v.name}' completed.`);refresh()},'Send the initial copy');
+def(['Get-VMReplication'],'hyperv',m=>{needHV('Get-VMReplication',m);table(vmList(m.name).filter(v=>v.replication).map(v=>{const pri=v.replicaOf?S.vms[v.replicaOf]:v;return {VMName:v.name,State:v.replication.state,Health:replicaHealth(pri)||'',Mode:v.replication.mode,FrequencySec:pri.replication?pri.replication.freq:300,PrimaryServer:pri.parent,ReplicaServer:v.replication.server}}))},'Replication state and health');
+def(['Measure-VMReplication'],'hyperv',m=>{needHV('Measure-VMReplication',m);table(vmList(m.name).filter(v=>v.replication&&!v.replicaOf).map(v=>({Name:v.name,State:v.replication.state,Health:replicaHealth(v),LReplTime:v.replication.state==='Replicating'?now():'','PReplSize(M)':0.01,'AvgLatency':'00:00:01','AvgReplSize(M)':1.2,Relationship:'Simple'})))});
+def(['Start-VMFailover'],'hyperv',async(m,p)=>{needHV('Start-VMFailover',m);const n=P(p,['VMName','Name'],0);const v=findVM(m.name,n);if(!v||!v.replicaOf)throw new PSErr('Start-VMFailover',`'${n}' is not a Replica virtual machine on ${m.name}. Run test failover on the Replica server.`,'ObjectNotFound');
+  if(v.replication.state!=='Replicating')throw new PSErr('Start-VMFailover','Initial replication has not completed yet.');
+  if(P(p,'AsTest')){if(findVM(m.name,v.name+' - Test'))throw new PSErr('Start-VMFailover','A test failover is already running for this virtual machine.');await sleep(900);const t={id:uid++,name:v.name+' - Test',parent:m.name,gen:v.gen,mem:v.mem,dynamic:false,cpu:1,state:'Off',booted:false,expose:false,vhd:null,nics:[{name:'Network Adapter',switch:null,vlan:0}],path:v.path,checkpoints:[],testOf:v.id};S.vms[t.id]=t;S.flags.testFailover=true;ev(m.name,'Replica',0,`Test failover started for '${v.name}': created '${t.name}' with its network adapter disconnected.`);print(`Created '${t.name}'. Its network adapter is not connected, so it cannot clash with the production VM.`,'d')}
+  else throw new PSErr('Start-VMFailover','Planned and unplanned failover are covered in Module 09 of the lab guide. In the simulator, run a test failover with -AsTest.');refresh()},'DR test failover (-AsTest) on the Replica server');
+def(['Stop-VMFailover'],'hyperv',async(m,p)=>{needHV('Stop-VMFailover',m);const n=P(p,['VMName','Name'],0);const t=findVM(m.name,n+' - Test');if(!t)throw new PSErr('Stop-VMFailover',`No test failover is running for '${n}'.`,'ObjectNotFound');await sleep(600);delete S.vms[t.id];S.flags.testCleaned=!!S.flags.testFailover;ev(m.name,'Replica',0,`Test failover for '${n}' stopped and the test VM was deleted.`);refresh()},'End a test failover');
+
+/* ---------- formatters ---------- */
+const FORMAT={'format-list':'list','fl':'list','format-table':'table','ft':'table','out-null':'null','select-object':'select','select':'select'};
+
+/* ============================================================
+   Executor
+   ============================================================ */
+let busy=false;const queue=[];
+function afterNetChange(){refresh()}
+async function execLine(line){
+  line=line.trim();if(!line)return;
+  print(promptText()+line,'cmd');
+  const am=line.match(/^\(\s*Get-ClusterNetwork\s+(?:-Name\s+)?["']?([^"')]+?)["']?\s*\)\.(Role|Name)\s*=\s*["']?([^"']+?)["']?$/i);
+  if(am){const m=ctxM();try{if(!modAvailable('cluster',m))throw new PSErr('Get-ClusterNetwork',"The term 'Get-ClusterNetwork' is not recognized as the name of a cmdlet.",'ObjectNotFound');nodeOK('Get-ClusterNetwork',m);const net=S.cluster.networks.find(x=>lc(x.name)===lc(am[1]));if(!net)throw new PSErr('Get-ClusterNetwork',`The cluster network '${am[1]}' could not be found.`,'ObjectNotFound');if(lc(am[2])==='role'){const r=/^\d$/.test(am[3])?+am[3]:{none:0,cluster:1,clusterandclient:3}[lc(am[3])];if(r==null)throw new PSErr('Get-ClusterNetwork','Role must be 0 (None), 1 (Cluster) or 3 (ClusterAndClient).','InvalidArgument');net.role=r}else net.name=am[3];refresh()}catch(e){if(e instanceof PSErr)perr(e);else throw e}return}
+  const toks=tokenize(line);const segs=[[]];toks.forEach(t=>{if(t.k==='pipe')segs.push([]);else segs[segs.length-1].push(t)});
+  let input=null,fmt=null,fmtCols=null;
+  for(let i=0;i<segs.length;i++){const seg=segs[i];if(!seg.length)continue;const p=parseSeg(seg);const name=lc(p.cmd);
+    if(FORMAT[name]){fmt=FORMAT[name];fmtCols=p.pos.length?arr(p.pos[0]):(P(p,'Property')?arr(P(p,'Property')):null);if(fmtCols&&fmtCols.includes('*'))fmtCols=null;continue}
+    if(name==='where-object'||name==='?'||name==='sort-object'||name==='sort'){continue}
+    const c=C[name];const m=ctxM();
+    if(!c||!modAvailable(c.mod,m)){perr(new PSErr(p.cmd,`The term '${p.cmd}' is not recognized as the name of a cmdlet, function, script file, or operable program.${c?` (It belongs to a module that is not installed on ${m.name}: install the matching role or feature first.)`:''} Check the spelling of the name, or type "help" for the list of supported cmdlets.`,'ObjectNotFound'));return}
+    try{const r=await c.fn(m,p,input);input=r&&r.objs?r.objs:null;if(r&&r.objs&&i===segs.length-1||r&&r.objs&&segs.slice(i+1).every(s=>s.length&&FORMAT[lc(s[0].v)])){const later=segs.slice(i+1).map(s=>parseSeg(s));later.forEach(lp=>{const f=FORMAT[lc(lp.cmd)];if(f){fmt=f;fmtCols=lp.pos.length?arr(lp.pos[0]):(P(lp,'Property')?arr(P(lp,'Property')):null);if(fmtCols&&fmtCols.includes('*'))fmtCols=null}});
+        const objs=r.objs.map(o=>{const c2={};Object.keys(o).filter(k=>!k.startsWith('_')).forEach(k=>c2[k]=o[k]);return c2});
+        if(fmt==='null'){}else if(fmt==='list')list(objs,fmtCols);else if(objs.length)table(objs,fmtCols||(fmt==='table'||fmt==='select'?null:r.cols));break}}
+    catch(e){if(e instanceof PSErr){perr(e);break}console.error(e);print('Internal simulator error: '+e.message,'e');break}
+  }
+  checkTasks();save();refresh();
+}
+function promptText(){return S.ctx===HOST?'PS C:\\Users\\Administrator> ':`[${S.ctx}]: PS C:\\Users\\Administrator\\Documents> `}
+async function run(lines){queue.push(...[].concat(lines));if(busy)return;busy=true;$('busy').hidden=false;
+  while(queue.length){const l=queue.shift();await execLine(l);updatePrompt()}
+  busy=false;$('busy').hidden=true;updatePrompt();}
+function updatePrompt(){$('prompt').textContent=promptText().trimEnd();$('where').textContent=S.ctx===HOST?'LAB-HOST (physical host)':S.ctx+' (PowerShell Direct session)'}
+
+/* ============================================================
+   Runbook: phases, tasks, checks, solutions
+   ============================================================ */
+const M=n=>S.machines[n];
+const NAMES=['DC01','STOR01','HV01','HV02','HV03'];
+const MEMS={DC01:'2GB',STOR01:'2GB',HV01:'12GB',HV02:'12GB',HV03:'8GB'};
+function hvSwitch(n){return S.switches[HOST]&&Object.keys(S.switches[HOST]).some(k=>k===n)}
+function vmOn(n){return findVM(HOST,n)}
+const PHASES=[
+ {id:'p1',title:'Prepare the physical host',tasks:[
+  {id:'p1t1',title:'Install the Hyper-V role with its management tools',on:HOST,
+   why:'Everything starts with the hypervisor. Installing Hyper-V turns Windows into the root partition, and a restart is required before the hypervisor loads. Until then, the Hyper-V cmdlets are missing: try Get-VM now and read the error.',
+   hint:'Install-WindowsFeature takes -Name, -IncludeManagementTools and -Restart.',
+   check:()=>has(M(HOST),'Hyper-V'),sol:()=>[[HOST,'Install-WindowsFeature -Name Hyper-V -IncludeManagementTools -Restart'],[HOST,'Get-VMHost']]}]},
+ {id:'p2',title:'Build the virtual networks',tasks:[
+  {id:'p2t1',title:'Create the internal management switch HVLAB-Mgmt',on:HOST,why:'An internal switch connects VMs to each other and to the host, but not to your real network. The host becomes the router for the lab.',hint:'New-VMSwitch -Name ... -SwitchType Internal',check:()=>S.switches[HOST]['HVLAB-Mgmt']&&S.switches[HOST]['HVLAB-Mgmt'].type==='Internal',sol:()=>[[HOST,'New-VMSwitch -Name HVLAB-Mgmt -SwitchType Internal']]},
+  {id:'p2t2',title:'Create private switches HVLAB-Storage and HVLAB-Cluster',on:HOST,why:'Private switches only connect VMs. Storage (iSCSI) and cluster/live migration traffic stay isolated from the host and from management, the same way production uses dedicated VLANs or NICs.',hint:'Two New-VMSwitch commands with -SwitchType Private.',check:()=>['HVLAB-Storage','HVLAB-Cluster'].every(n=>S.switches[HOST][n]&&S.switches[HOST][n].type==='Private'),sol:()=>[[HOST,'New-VMSwitch -Name HVLAB-Storage -SwitchType Private'],[HOST,'New-VMSwitch -Name HVLAB-Cluster -SwitchType Private']]},
+  {id:'p2t3',title:'Give the host 10.10.0.1/24 on the management switch',on:HOST,why:'The host vNIC "vEthernet (HVLAB-Mgmt)" becomes the default gateway for every lab VM.',hint:'New-NetIPAddress -InterfaceAlias "vEthernet (HVLAB-Mgmt)" ...',check:()=>M(HOST).hostIps['HVLAB-Mgmt']==='10.10.0.1',sol:()=>[[HOST,'New-NetIPAddress -InterfaceAlias "vEthernet (HVLAB-Mgmt)" -IPAddress 10.10.0.1 -PrefixLength 24']]},
+  {id:'p2t4',title:'Create NAT for 10.10.0.0/24',on:HOST,why:'WinNAT lets lab VMs reach the Internet (Windows Update, downloads) without bridging onto your LAN. Windows supports one NetNat per host.',hint:'New-NetNat -Name HVLAB-NAT -InternalIPInterfaceAddressPrefix ...',check:()=>S.nat&&S.nat.prefix==='10.10.0.0/24',sol:()=>[[HOST,'New-NetNat -Name HVLAB-NAT -InternalIPInterfaceAddressPrefix 10.10.0.0/24']]}]},
+ {id:'p3',title:'Deploy the lab VMs from the golden image',tasks:[
+  {id:'p3t1',title:'Create differencing disks for DC01, STOR01, HV01, HV02 and HV03',on:HOST,why:'C:\\Images\\WS2025-Core.vhdx is a generalized (Sysprepped) Server Core image. A differencing disk per VM is an instant clone: the parent stays read-only and each child only stores its changes.',hint:'New-VHD -Path C:\\VMs\\DC01.vhdx -ParentPath C:\\Images\\WS2025-Core.vhdx -Differencing (repeat per VM)',check:()=>NAMES.every(n=>{const d=S.vhds[lc(`C:\\VMs\\${n}.vhdx`)];return d&&vhdRoot(d.path)}),sol:()=>NAMES.filter(n=>!S.vhds[lc(`C:\\VMs\\${n}.vhdx`)]).map(n=>[HOST,`New-VHD -Path C:\\VMs\\${n}.vhdx -ParentPath C:\\Images\\WS2025-Core.vhdx -Differencing`])},
+  {id:'p3t2',title:'Create Generation 2 VMs on HVLAB-Mgmt',on:HOST,why:'Generation 2 means UEFI, Secure Boot and SCSI boot, and it is required for this GPT image. New-VM defaults to Generation 1, so always pass -Generation 2. Sizes: DC01 and STOR01 2 GB, HV01 and HV02 12 GB, HV03 8 GB.',hint:'New-VM -Name DC01 -Generation 2 -MemoryStartupBytes 2GB -VHDPath C:\\VMs\\DC01.vhdx -SwitchName HVLAB-Mgmt',check:()=>NAMES.every(n=>{const v=vmOn(n);return v&&v.gen===2&&v.vhd&&vhdRoot(v.vhd)&&v.nics.some(a=>a.switch==='HVLAB-Mgmt')}),sol:()=>NAMES.filter(n=>!vmOn(n)).map(n=>[HOST,`New-VM -Name ${n} -Generation 2 -MemoryStartupBytes ${MEMS[n]} -VHDPath C:\\VMs\\${n}.vhdx -SwitchName HVLAB-Mgmt`])},
+  {id:'p3t3',title:'Add storage and cluster network adapters',on:HOST,why:'STOR01, HV01 and HV02 need a NIC on HVLAB-Storage for iSCSI. HV01 and HV02 also need one on HVLAB-Cluster for heartbeat and live migration. Name each adapter after its network so it is easy to identify inside the guest.',hint:'Add-VMNetworkAdapter -VMName STOR01,HV01,HV02 -Name Storage -SwitchName HVLAB-Storage',check:()=>['STOR01','HV01','HV02'].every(n=>vmOn(n)&&vmOn(n).nics.some(a=>a.switch==='HVLAB-Storage'))&&['HV01','HV02'].every(n=>vmOn(n).nics.some(a=>a.switch==='HVLAB-Cluster')),sol:()=>[[HOST,'Add-VMNetworkAdapter -VMName STOR01,HV01,HV02 -Name Storage -SwitchName HVLAB-Storage'],[HOST,'Add-VMNetworkAdapter -VMName HV01,HV02 -Name Cluster -SwitchName HVLAB-Cluster']]},
+  {id:'p3t4',title:'Prepare HV01-HV03 for nested virtualization',on:HOST,why:'To run Hyper-V inside a VM, the parent must expose the CPU\'s virtualization extensions (VM off, static memory), and MAC address spoofing lets the nested VMs\' traffic out. Give the hosts 4 vCPUs too.',hint:'Set-VMProcessor -VMName HV01,HV02,HV03 -ExposeVirtualizationExtensions $true -Count 4, then Set-VMNetworkAdapter ... -MacAddressSpoofing On',check:()=>['HV01','HV02','HV03'].every(n=>{const v=vmOn(n);return v&&v.expose&&!v.dynamic&&v.nics.every(a=>a.spoof)}),sol:()=>[[HOST,'Set-VMProcessor -VMName HV01,HV02,HV03 -ExposeVirtualizationExtensions $true -Count 4'],[HOST,'Set-VMNetworkAdapter -VMName HV01,HV02,HV03 -MacAddressSpoofing On']]},
+  {id:'p3t5',title:'Start the VMs and wait for first boot',on:HOST,why:'At first boot, the answer file sets each computer name, names the NICs after their networks and assigns the planned static IPs. Use Get-VM, then Enter-PSSession -VMName DC01 and ipconfig to check.',hint:'Start-VM -Name DC01,STOR01,HV01,HV02,HV03',check:()=>NAMES.every(n=>machineUp(n)),sol:()=>[[HOST,'Start-VM -Name DC01,STOR01,HV01,HV02,HV03']],wait:NAMES}]},
+ {id:'p4',title:'Build identity: AD DS and DNS',tasks:[
+  {id:'p4t1',title:'Promote DC01 to the first domain controller of hvlab.internal',on:'DC01',why:'Clustering, Kerberos live migration and Replica all depend on AD and DNS. Install the role, then create the forest. DC01 restarts as a domain controller with DNS.',hint:'On DC01: Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools, then Install-ADDSForest -DomainName hvlab.internal -InstallDns',check:()=>M('DC01')&&M('DC01').isDC,sol:()=>[['DC01','Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools'],['DC01','Install-ADDSForest -DomainName hvlab.internal -InstallDns']],wait:['DC01']},
+  {id:'p4t2',title:'Join STOR01, HV01, HV02 and HV03 to the domain',on:'each server',why:'Every member points its DNS at DC01 (10.10.0.10). Add-Computer needs the DC reachable on the management network.',hint:'In each VM: Add-Computer -DomainName hvlab.internal -Restart',check:()=>['STOR01','HV01','HV02','HV03'].every(n=>M(n)&&M(n).domain===DOMAIN),sol:()=>['STOR01','HV01','HV02','HV03'].filter(n=>!(M(n)&&M(n).domain===DOMAIN)).map(n=>[n,'Add-Computer -DomainName hvlab.internal -Restart']),wait:['STOR01','HV01','HV02','HV03']}]},
+ {id:'p5',title:'Configure the Hyper-V hosts',tasks:[
+  {id:'p5t1',title:'Install Hyper-V, Failover Clustering and MPIO',on:'HV01, HV02, HV03',why:'HV01 and HV02 become cluster nodes and need Hyper-V, Failover-Clustering and Multipath-IO. HV03 is the standalone DR host and only needs Hyper-V. Each restarts once.',hint:'On HV01: Install-WindowsFeature -Name Hyper-V,Failover-Clustering,Multipath-IO -IncludeManagementTools -Restart',check:()=>['HV01','HV02'].every(n=>M(n)&&['Hyper-V','Failover-Clustering','Multipath-IO'].every(f=>has(M(n),f)))&&M('HV03')&&has(M('HV03'),'Hyper-V'),sol:()=>[['HV01','Install-WindowsFeature -Name Hyper-V,Failover-Clustering,Multipath-IO -IncludeManagementTools -Restart'],['HV02','Install-WindowsFeature -Name Hyper-V,Failover-Clustering,Multipath-IO -IncludeManagementTools -Restart'],['HV03','Install-WindowsFeature -Name Hyper-V -IncludeManagementTools -Restart']],wait:['HV01','HV02','HV03']},
+  {id:'p5t2',title:'Create a SET switch named SETswitch on each host',on:'HV01, HV02, HV03',why:'Switch Embedded Teaming is the recommended external switch on Hyper-V hosts. It is bound to the Mgmt NIC, the management OS shares it, and the name must match on every node so VMs keep their network after failover.',hint:'New-VMSwitch -Name SETswitch -NetAdapterName Mgmt -EnableEmbeddedTeaming $true -AllowManagementOS $true',check:()=>['HV01','HV02','HV03'].every(n=>S.switches[n]&&S.switches[n].SETswitch&&S.switches[n].SETswitch.set),sol:()=>['HV01','HV02','HV03'].filter(n=>!(S.switches[n]&&S.switches[n].SETswitch)).map(n=>[n,'New-VMSwitch -Name SETswitch -NetAdapterName Mgmt -EnableEmbeddedTeaming $true -AllowManagementOS $true'])},
+  {id:'p5t3',title:'Enable live migration with Kerberos authentication',on:'HV01, HV02, HV03',why:'Kerberos (with constrained delegation in AD) lets you start migrations remotely. CredSSP only works when you are logged on to the source host.',hint:'Enable-VMMigration; Set-VMHost -VirtualMachineMigrationAuthenticationType Kerberos',check:()=>['HV01','HV02','HV03'].every(n=>M(n)&&M(n).hv.migration&&M(n).hv.auth==='Kerberos'),sol:()=>['HV01','HV02','HV03'].flatMap(n=>[[n,'Enable-VMMigration'],[n,'Set-VMHost -VirtualMachineMigrationAuthenticationType Kerberos']])}]},
+ {id:'p6',title:'Provision shared storage (iSCSI SAN)',tasks:[
+  {id:'p6t1',title:'Install iSCSI Target Server on STOR01',on:'STOR01',why:'STOR01 plays the SAN. iSCSI Target Server presents VHDX files as LUNs over the storage network.',hint:'Install-WindowsFeature -Name FS-iSCSITarget-Server -IncludeManagementTools',check:()=>M('STOR01')&&has(M('STOR01'),'FS-iSCSITarget-Server'),sol:()=>[['STOR01','Install-WindowsFeature -Name FS-iSCSITarget-Server -IncludeManagementTools']]},
+  {id:'p6t2',title:'Create target HVCLU01 that only HV01 and HV02 may use',on:'STOR01',why:'LUN masking: the target lists the initiators allowed to log on. HV03 must not see the cluster disks.',hint:'New-IscsiServerTarget -TargetName HVCLU01 -InitiatorIds "IPAddress:10.10.20.11","IPAddress:10.10.20.12"',check:()=>{const t=S.iscsi.targets['hvclu01'];return t&&['10.10.20.11','10.10.20.12'].every(ip=>t.ids.some(i=>lc(i)===lc('IPAddress:'+ip)))},sol:()=>[['STOR01','New-IscsiServerTarget -TargetName HVCLU01 -InitiatorIds "IPAddress:10.10.20.11","IPAddress:10.10.20.12"']]},
+  {id:'p6t3',title:'Create and map a 120 GB CSV LUN and a 1 GB witness LUN',on:'STOR01',why:'Clusters use one small LUN as the quorum witness and one or more large LUNs as Cluster Shared Volumes for VM files.',hint:'New-IscsiVirtualDisk -Path E:\\iSCSI\\CSV01.vhdx -SizeBytes 120GB, then Add-IscsiVirtualDiskTargetMapping -TargetName HVCLU01 -Path ...',check:()=>{const t=S.iscsi.targets['hvclu01'];if(!t)return false;const sz=t.luns.map(l=>S.iscsi.vdisks[lc(l)].size);return sz.some(s=>s>=100*GB)&&sz.some(s=>s<=5*GB)},sol:()=>[['STOR01','New-IscsiVirtualDisk -Path E:\\iSCSI\\CSV01.vhdx -SizeBytes 120GB'],['STOR01','New-IscsiVirtualDisk -Path E:\\iSCSI\\Witness.vhdx -SizeBytes 1GB'],['STOR01','Add-IscsiVirtualDiskTargetMapping -TargetName HVCLU01 -Path E:\\iSCSI\\CSV01.vhdx'],['STOR01','Add-IscsiVirtualDiskTargetMapping -TargetName HVCLU01 -Path E:\\iSCSI\\Witness.vhdx']]},
+  {id:'p6t4',title:'Connect HV01 and HV02 to the target with MPIO',on:'HV01, HV02',why:'Each node adds STOR01\'s storage IP as a portal and logs on with a persistent, multipath-enabled session, so the disks come back after every reboot.',hint:'Enable-MSDSMAutomaticClaim -BusType iSCSI; New-IscsiTargetPortal -TargetPortalAddress 10.10.20.30; Get-IscsiTarget | Connect-IscsiTarget -IsPersistent $true -IsMultipathEnabled $true',check:()=>['HV01','HV02'].every(n=>M(n)&&M(n).iscsi.sessions.some(s=>s.persistent)&&lunsSeenBy(n).length>=2),sol:()=>['HV01','HV02'].flatMap(n=>[[n,'Enable-MSDSMAutomaticClaim -BusType iSCSI'],[n,'New-IscsiTargetPortal -TargetPortalAddress 10.10.20.30'],[n,'Get-IscsiTarget | Connect-IscsiTarget -IsPersistent $true -IsMultipathEnabled $true'],[n,'Get-Disk']])}]},
+ {id:'p7',title:'Create the failover cluster',tasks:[
+  {id:'p7t1',title:'Validate the nodes with Test-Cluster',on:'HV01',why:'Microsoft only supports clusters that pass validation. Read the warnings: some are acceptable in a lab, but failures are not.',hint:'Test-Cluster -Node HV01,HV02',check:()=>!!S.flags.testCluster,sol:()=>[['HV01','Test-Cluster -Node HV01,HV02']]},
+  {id:'p7t2',title:'Create cluster HVCLU01 at 10.10.0.50',on:'HV01',why:'New-Cluster creates the cluster name object in AD, registers DNS and starts the cluster service. -NoStorage lets you choose the disk roles yourself.',hint:'New-Cluster -Name HVCLU01 -Node HV01,HV02 -StaticAddress 10.10.0.50 -NoStorage',check:()=>!!S.cluster,sol:()=>[['HV01','New-Cluster -Name HVCLU01 -Node HV01,HV02 -StaticAddress 10.10.0.50 -NoStorage']]},
+  {id:'p7t3',title:'Add the disks, set the witness and create the CSV',on:'HV01',why:'A two-node cluster must have a witness, otherwise losing one node can take everything down. Use the 1 GB disk as the witness and the 120 GB disk as Cluster Shared Volume 1. Check sizes with Get-ClusterResource.',hint:'Get-ClusterAvailableDisk | Add-ClusterDisk; Set-ClusterQuorum -DiskWitness "Cluster Disk N"; Add-ClusterSharedVolume -Name "Cluster Disk M"',check:()=>S.cluster&&S.cluster.quorum.type==='NodeAndDiskMajority'&&S.cluster.disks.some(d=>d.csv),sol:()=>{const st=[];if(S.cluster&&S.cluster.disks.length<2)st.push(['HV01','Get-ClusterAvailableDisk | Add-ClusterDisk']);const later=()=>{};st.push(['HV01','@witness']);st.push(['HV01','@csv']);return st}},
+  {id:'p7t4',title:'Name the cluster networks Mgmt, Storage and Cluster',on:'HV01',why:'Clear names make the role of each network obvious during an incident. Check that Storage has role None: iSCSI must never carry cluster traffic.',hint:'(Get-ClusterNetwork "Cluster Network 1").Name = "Mgmt"',check:()=>S.cluster&&['Mgmt','Storage','Cluster'].every(n=>S.cluster.networks.some(x=>x.name===n&&x.kind===n)),sol:()=>S.cluster?S.cluster.networks.filter(x=>x.name!==x.kind).map(x=>['HV01',`(Get-ClusterNetwork "${x.name}").Name = "${x.kind}"`]):[]}]},
+ {id:'p8',title:'Run highly available workloads',tasks:[
+  {id:'p8t1',title:'Create SHELL01 on the CSV and make it highly available',on:'HV01',why:'A VM is highly available only if its files are on shared storage (the CSV) and it is a clustered role. SHELL01 is a small empty VM, which is perfect for migration drills.',hint:'New-VM ... -Path C:\\ClusterStorage\\Volume1 -NewVHDPath C:\\ClusterStorage\\Volume1\\SHELL01.vhdx -NewVHDSizeBytes 20GB -SwitchName SETswitch; Add-ClusterVirtualMachineRole -VMName SHELL01; Start-ClusterGroup -Name SHELL01',check:()=>S.cluster&&S.cluster.groups.SHELL01&&S.cluster.groups.SHELL01.state==='Online',sol:()=>[['HV01','New-VM -Name SHELL01 -Generation 2 -MemoryStartupBytes 512MB -Path C:\\ClusterStorage\\Volume1 -NewVHDPath C:\\ClusterStorage\\Volume1\\SHELL01.vhdx -NewVHDSizeBytes 20GB -SwitchName SETswitch'],['HV01','Add-ClusterVirtualMachineRole -VMName SHELL01'],['HV01','Start-ClusterGroup -Name SHELL01']]},
+  {id:'p8t2',title:'Live-migrate SHELL01 to the other node',on:'HV01',why:'Live migration moves memory and state while the VM keeps running. Storage stays on the CSV, so only RAM crosses the cluster network.',hint:'Move-ClusterVirtualMachineRole -Name SHELL01 -Node HV02 -MigrationType Live',check:()=>!!S.flags.liveMigrated,sol:()=>{const g=S.cluster&&S.cluster.groups.SHELL01;const t=g&&g.owner==='HV02'?'HV01':'HV02';return [['HV01',`Move-ClusterVirtualMachineRole -Name SHELL01 -Node ${t} -MigrationType Live`]]}},
+  {id:'p8t3',title:'Drain a node for maintenance, then resume it',on:'HV01',why:'Before patching a host, pause it with -Drain: its roles live-migrate away. Resume with -Failback Immediate to bring them home.',hint:'Suspend-ClusterNode -Name HV02 -Drain; Resume-ClusterNode -Name HV02 -Failback Immediate',check:()=>!!S.flags.drained&&!!S.flags.resumed,sol:()=>{const g=S.cluster&&S.cluster.groups.SHELL01;const n=g?g.owner:'HV02';return [['HV01',`Suspend-ClusterNode -Name ${n} -Drain`],['HV01','Get-ClusterGroup'],['HV01',`Resume-ClusterNode -Name ${n} -Failback Immediate`]]}},
+  {id:'p8t4',title:'Survive an unplanned node failure',on:HOST,why:'Pull the plug on the node that owns SHELL01 (Stop-VM -TurnOff on the physical host). The cluster detects the loss, keeps quorum thanks to the witness and restarts SHELL01 on the survivor. Then start the node again and check it rejoins.',hint:'Stop-VM -Name <owner> -TurnOff, check the Cluster tab and Events, then Start-VM -Name <owner>',check:()=>!!S.flags.failoverSurvived&&S.cluster&&Object.values(S.cluster.nodes).every(x=>x.state!=='Down'),sol:()=>{const g=S.cluster&&S.cluster.groups.SHELL01;const n=g?g.owner:'HV02';return [[HOST,`Stop-VM -Name ${n} -TurnOff`],[HOST,`Start-VM -Name ${n}`]]},wait:['HV01','HV02']}]},
+ {id:'p9',title:'Protect workloads with Hyper-V Replica',tasks:[
+  {id:'p9t1',title:'Make HV03 a Replica server',on:'HV03',why:'HV03 is the DR host. It must accept replication (Kerberos over HTTP port 80) and open the matching inbound firewall rule.',hint:'Set-VMReplicationServer -ReplicationEnabled $true -AllowedAuthenticationType Kerberos -ReplicationAllowedFromAnyServer $true -DefaultStorageLocation C:\\Replica; Enable-NetFirewallRule -DisplayName "Hyper-V Replica HTTP Listener (TCP-In)"',check:()=>M('HV03')&&M('HV03').hv.replica&&M('HV03').hv.replica.enabled&&M('HV03').fw.replica,sol:()=>[['HV03','Set-VMReplicationServer -ReplicationEnabled $true -AllowedAuthenticationType Kerberos -ReplicationAllowedFromAnyServer $true -DefaultStorageLocation C:\\Replica'],['HV03',`Enable-NetFirewallRule -DisplayName "${FW_REPLICA}"`]]},
+  {id:'p9t2',title:'Create the Hyper-V Replica Broker role',on:'HV01',why:'Clustered VMs move between nodes, so replication needs a cluster-wide endpoint: the Replica Broker, with its own name and IP (10.10.0.51).',hint:'Add-ClusterServerRole -Name HVCLU01-RB -StaticAddress 10.10.0.51; Add-ClusterResource -Name "Virtual Machine Replication Broker" -Type "Virtual Machine Replication Broker" -Group HVCLU01-RB; Start-ClusterGroup -Name HVCLU01-RB',check:()=>S.cluster&&!!S.cluster.broker,sol:()=>[['HV01','Add-ClusterServerRole -Name HVCLU01-RB -StaticAddress 10.10.0.51'],['HV01','Add-ClusterResource -Name "Virtual Machine Replication Broker" -Type "Virtual Machine Replication Broker" -Group HVCLU01-RB'],['HV01','Start-ClusterGroup -Name HVCLU01-RB']]},
+  {id:'p9t3',title:'Replicate SHELL01 to HV03',on:'owner of SHELL01',why:'Run Enable-VMReplication on the node that owns SHELL01, then send the initial copy. Health should read Normal.',hint:'Enable-VMReplication -VMName SHELL01 -ReplicaServerName HV03 -ReplicaServerPort 80 -AuthenticationType Kerberos; Start-VMInitialReplication -VMName SHELL01',check:()=>{const v=findVMany('SHELL01');return v&&v.replication&&v.replication.state==='Replicating'&&replicaHealth(v)==='Normal'},sol:()=>{const g=S.cluster&&S.cluster.groups.SHELL01;const n=g?g.owner:'HV01';return [[n,'Enable-VMReplication -VMName SHELL01 -ReplicaServerName HV03 -ReplicaServerPort 80 -AuthenticationType Kerberos'],[n,'Start-VMInitialReplication -VMName SHELL01'],[n,'Get-VMReplication']]}},
+  {id:'p9t4',title:'Run a DR test failover and clean it up',on:'HV03',why:'A test failover proves the replica boots without touching production: it creates "SHELL01 - Test" with its network disconnected. Always stop the test afterwards.',hint:'Start-VMFailover -VMName SHELL01 -AsTest; Get-VM; Stop-VMFailover -VMName SHELL01',check:()=>!!S.flags.testCleaned,sol:()=>[['HV03','Start-VMFailover -VMName SHELL01 -AsTest'],['HV03','Get-VM'],['HV03','Stop-VMFailover -VMName SHELL01']]}]}
+];
+const ALLT=PHASES.flatMap(p=>p.tasks.map(t=>Object.assign(t,{phase:p})));
+function taskDone(t){try{return !!t.check()}catch(e){return false}}
+function checkTasks(){ALLT.forEach(t=>{const d=taskDone(t);if(d&&!S.done[t.id]){S.done[t.id]=true;toast('Task complete: '+t.title)}else if(!d&&S.done[t.id]&&t.id!==undefined){}});checkIncidents()}
+S.done=S.done||{};
+
+/* ============================================================
+   Incidents (break/fix)
+   ============================================================ */
+const INCIDENTS=[
+ {id:'i1',ticket:'INC-2041',title:'Live migration to HV02 fails with Kerberos errors',sev:'High',needs:()=>S.cluster&&S.cluster.groups.SHELL01,
+  report:'The service desk reports that moving SHELL01 to HV02 fails, and HV02 cannot run Resolve-DnsName for anything in hvlab.internal.',
+  hint:'Compare Get-DnsClientServerAddress on HV01 and HV02. Which server should members use?',
+  brk:()=>{M('HV02').dns='10.10.0.99'},fixed:()=>M('HV02').dns===DCIP,
+  answer:'Someone pointed HV02\'s DNS at 10.10.0.99. On HV02: Set-DnsClientServerAddress -InterfaceAlias "vEthernet (SETswitch)" -ServerAddresses 10.10.0.10'},
+ {id:'i2',ticket:'INC-2047',title:'CSV in redirected access on HV02',sev:'High',needs:()=>S.cluster&&S.cluster.disks.some(d=>d.csv),
+  report:'Monitoring shows high storage latency for VMs on HV02. Failover Cluster Manager flags the CSV as redirected on one node.',
+  hint:'Run Get-ClusterSharedVolumeState on a node, then Get-NetAdapter and Get-IscsiSession on HV02.',
+  brk:()=>{M('HV02').nicOff['Storage']=true},fixed:()=>!M('HV02').nicOff['Storage'],
+  answer:'HV02\'s Storage NIC was disabled, so CSV I/O is redirected over SMB through the coordinator node. On HV02: Enable-NetAdapter -Name Storage'},
+ {id:'i3',ticket:'INC-2052',title:'Replication health is Critical',sev:'Medium',needs:()=>{const v=findVMany('SHELL01');return v&&v.replication},
+  report:'The DR dashboard shows SHELL01 replication as Critical: "Hyper-V cannot connect to the specified Replica server".',
+  hint:'From the primary node, run Test-NetConnection HV03 -Port 80. What listens on port 80 on HV03?',
+  brk:()=>{M('HV03').fw.replica=false},fixed:()=>M('HV03').fw.replica,
+  answer:`The inbound rule "${FW_REPLICA}" was disabled on HV03. On HV03: Enable-NetFirewallRule -DisplayName "${FW_REPLICA}"`},
+ {id:'i4',ticket:'INC-2058',title:'Nobody can log on, DNS is down',sev:'Critical',needs:()=>M('DC01')&&M('DC01').isDC,
+  report:'Every server reports that a domain controller cannot be contacted. DC01 is running and its console shows no errors.',
+  hint:'The DC looks healthy from inside. Check its virtual network adapter settings on the physical host: Get-VMNetworkAdapterVlan -VMName DC01.',
+  brk:()=>{vmOn('DC01').nics[0].vlan=99},fixed:()=>vmOn('DC01').nics.every(a=>!a.vlan),
+  answer:'DC01\'s vNIC was tagged with VLAN 99, so it is isolated from untagged neighbours even though it shows Connected. On LAB-HOST: Set-VMNetworkAdapterVlan -VMName DC01 -Untagged'},
+ {id:'i5',ticket:'INC-2063',title:'Patching window: VMs will not move to HV02',sev:'Medium',needs:()=>S.cluster&&S.cluster.groups.SHELL01,
+  report:'The patching team tried to live-migrate SHELL01 to HV02 before patching HV01, and the move is refused.',
+  hint:'Run Get-ClusterNode. Which state blocks a node from owning roles?',
+  brk:()=>{const g=S.cluster.groups.SHELL01;if(g.owner==='HV02'){const v=findVM('HV02','SHELL01');if(v)v.parent='HV01';g.owner='HV01'}S.cluster.nodes.HV02.state='Paused'},fixed:()=>S.cluster.nodes.HV02.state==='Up',
+  answer:'HV02 was left paused after earlier maintenance. A paused node cannot own roles. On a node: Resume-ClusterNode -Name HV02'},
+ {id:'i6',ticket:'INC-2070',title:'Host disk filling up behind STOR01',sev:'Low',needs:()=>vmOn('STOR01'),
+  report:'Disk usage on the physical host grows every day and STOR01\'s storage latency is creeping up.',
+  hint:'Checkpoints turn every write into a differencing (.avhdx) file. Get-VMCheckpoint -VMName STOR01',
+  brk:()=>{const v=vmOn('STOR01');['Before patch','Before patch 2','Test'].forEach(n=>v.checkpoints.push({name:n,t:'3 weeks ago'}))},fixed:()=>vmOn('STOR01').checkpoints.length===0,
+  answer:'Three forgotten checkpoints. On LAB-HOST: Remove-VMCheckpoint -VMName STOR01 -Name * (the .avhdx files then merge back into the parent).'}
+];
+function checkIncidents(){INCIDENTS.forEach(i=>{const st=S.incidents[i.id];if(st==='active'&&i.fixed()){S.incidents[i.id]='solved';ev('ServiceDesk',i.ticket,0,`${i.ticket} resolved: ${i.title}.`);toast(`${i.ticket} resolved. Nice work.`)}})}
+
+/* ============================================================
+   UI: runbook
+   ============================================================ */
+function renderRunbook(){
+  const rb=$('runbook');const open=new Set([...rb.querySelectorAll('details[open]')].map(d=>d.dataset.id));
+  const firstOpen=!rb.children.length;
+  rb.innerHTML='';let done=0;
+  PHASES.forEach((p,pi)=>{const n=p.tasks.filter(taskDone).length;done+=n;
+    const d=document.createElement('details');d.className='phase';d.dataset.id=p.id;
+    if(open.has(p.id)||(firstOpen&&p.tasks.some(t=>t.id===S.sel)))d.open=true;
+    d.innerHTML=`<summary><span class="ph-num">${String(pi+1).padStart(2,'0')}</span><span class="ph-title">${esc(p.title)}</span><span class="ph-count ${n===p.tasks.length?'done':''}">${n}/${p.tasks.length}</span></summary>`;
+    p.tasks.forEach(t=>{const el=document.createElement('div');el.className='task'+(taskDone(t)?' ok':'')+(S.sel===t.id?' sel':'');el.tabIndex=0;el.setAttribute('role','button');el.innerHTML=`<span class="dot" aria-hidden="true"></span><span>${esc(t.title)}</span>`;
+      el.onclick=()=>{S.sel=t.id;save();renderRunbook();renderDetail()};el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();el.click()}};d.appendChild(el)});
+    rb.appendChild(d)});
+  const total=ALLT.length;$('pbar').style.width=(done/total*100)+'%';$('ptext').textContent=`${done} / ${total} tasks`;
+  const nxt=ALLT.find(t=>!taskDone(t));$('phaseNote').textContent=nxt?'next: phase '+(PHASES.indexOf(nxt.phase)+1):'complete';
+}
+function resolveSol(t){let steps=t.sol();
+  steps=steps.map(([on,cmd])=>{if(cmd==='@witness'||cmd==='@csv'){const ds=S.cluster?S.cluster.disks.slice():[];if(!ds.length){const av=sharedLuns(upNodes()).sort((a,b)=>S.iscsi.vdisks[lc(a)].order-S.iscsi.vdisks[lc(b)].order);av.forEach((l,i)=>ds.push({name:'Cluster Disk '+(i+1),size:S.iscsi.vdisks[lc(l)].size}))}
+    const small=ds.slice().sort((a,b)=>a.size-b.size)[0],big=ds.slice().sort((a,b)=>b.size-a.size)[0];
+    return cmd==='@witness'?[on,`Set-ClusterQuorum -DiskWitness "${small?small.name:'Cluster Disk 2'}"`]:[on,`Add-ClusterSharedVolume -Name "${big?big.name:'Cluster Disk 1'}"`]}return [on,cmd]});
+  return steps}
+function renderDetail(){
+  const t=ALLT.find(x=>x.id===S.sel)||ALLT[0];const d=$('detail');const ok=taskDone(t);
+  let steps=[];try{steps=resolveSol(t)}catch(e){}
+  d.innerHTML=`<div class="on">Run on: ${esc(t.on)}</div><h3>${esc(t.title)} ${ok?'<span class="pill p-ok">Done</span>':''}</h3><p>${esc(t.why)}</p>
+  <details><summary>Hint</summary><p class="mono" style="margin-top:6px">${esc(t.hint)}</p></details>
+  <details id="solDet"><summary>Show solution</summary><div class="sol">${steps.map(([on,c],i)=>`<span class="ctx">${esc(on)}</span><code data-i="${i}" title="Click to paste into the console">${esc(c)}</code>`).join('')||'<span class="ctx">Nothing left to run.</span>'}</div>
+  <div class="row"><button class="primary" id="runSol" ${steps.length?'':'disabled'}>Run these commands for me</button></div></details>`;
+  d.querySelectorAll('.sol code').forEach(c=>c.onclick=()=>{const [on,cmd]=steps[+c.dataset.i];const inp=$('cmd');if(on!==S.ctx&&on!=='owner of SHELL01'){toast(on===HOST?'Exit-PSSession first, then run this on LAB-HOST.':`Run this inside ${on}: Enter-PSSession -VMName ${on}`)}inp.value=cmd;inp.focus()});
+  const rs=$('runSol');if(rs)rs.onclick=()=>runSolution(t);
+}
+async function waitUp(names,ms){const end=Date.now()+(ms||20000);while(Date.now()<end){if(names.every(machineUp))return true;await sleep(400)}return false}
+async function runSolution(t){if(busy){toast('Wait for the current command to finish.');return}
+  const steps=resolveSol(t);busy=true;$('busy').hidden=false;
+  for(const [on,cmd] of steps){
+    if(on!==S.ctx){if(S.ctx!==HOST){await execLine('Exit-PSSession')}if(on!==HOST){if(!(await waitUp([on])))print(`${on} is not up yet.`,'w');await execLine(`Enter-PSSession -VMName ${on}`)}updatePrompt()}
+    if(on!==S.ctx&&on!==HOST){print('Stopped: could not open a session to '+on+'. Fix the error above and try again.','w');break}
+    await execLine(cmd);updatePrompt();
+    if(/-Restart\b|Install-ADDSForest|Start-VM/i.test(cmd)&&t.wait){await waitUp(t.wait.filter(n=>S.machines[n]||vmOn(n)),25000);if(S.ctx!==HOST&&!machineUp(S.ctx))S.ctx=HOST}
+  }
+  if(S.ctx!==HOST&&!/HV0|DC|STOR/.test(t.on)){}
+  busy=false;$('busy').hidden=true;updatePrompt();checkTasks();save();refresh();
+  if(queue.length)run([]);
+}
+
+/* ============================================================
+   UI: right-hand views
+   ============================================================ */
+let tab='inv';
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b?'true':'false'));renderView()});
+function stPill(v){if(v.replicaOf)return '<span class="pill p-idle">Replica</span>';if(v.state==='Running'){if(v.parent===HOST&&!hasOS(v))return '<span class="pill p-warn">No OS</span>';if(v.parent===HOST&&!v.booted)return '<span class="pill p-acc">Booting</span>';return '<span class="pill p-ok">Running</span>'}return '<span class="pill p-idle">Off</span>'}
+function renderView(){
+  const v=$('view');
+  if(tab==='inv'){
+    const hostReady=has(M(HOST),'Hyper-V');
+    let h=`<div class="card"><h4>LAB-HOST <small>${hostReady?`Hyper-V · ${fmtBytes(usedMem(HOST))} of ${fmtBytes(capMem(HOST))} VM memory in use`:(M(HOST).features['Hyper-V']?'Hyper-V installed, restart pending':'Hyper-V not installed')}</small></h4>`;
+    const vs=vmList(HOST);
+    h+=vs.length?`<table class="t"><thead><tr><th>VM</th><th>State</th><th>Memory</th><th>Gen</th><th>IP</th></tr></thead><tbody>${vs.map(x=>`<tr><td><b>${esc(x.name)}</b>${x.expose?' <span class="pill p-acc" title="Nested virtualization">nested</span>':''}${x.checkpoints.length?` <span class="pill p-warn">${x.checkpoints.length} ckpt</span>`:''}</td><td>${stPill(x)}</td><td class="mono">${fmtBytes(x.mem)}${x.dynamic?' dyn':''}</td><td class="mono">${x.gen}</td><td class="mono">${(PLAN[x.name]&&x.booted)?PLAN[x.name].Mgmt:''}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${hostReady?'No VMs yet. Phase 3 creates them.':'Install Hyper-V (phase 1) to start.'}</div>`;
+    h+='</div>';
+    ['HV01','HV02','HV03'].forEach(n=>{const m=M(n);if(!m||!m.features['Hyper-V'])return;const ns=vmList(n);
+      h+=`<div class="card"><h4>${n} <small>${has(m,'Hyper-V')?'nested Hyper-V host':'restart pending'} · ${m.domain?'hvlab.internal':'workgroup'}${S.switches[n]&&S.switches[n].SETswitch?' · SETswitch':''}</small></h4>${ns.length?`<table class="t"><tbody>${ns.map(x=>`<tr><td><b>${esc(x.name)}</b>${x.clustered?' <span class="pill p-acc">HA</span>':''}${x.replication&&!x.replicaOf?` <span class="pill ${replicaHealth(x)==='Normal'?'p-ok':replicaHealth(x)==='Critical'?'p-bad':'p-warn'}">replica ${replicaHealth(x)}</span>`:''}</td><td>${stPill(x)}</td><td class="mono">${fmtBytes(x.mem)}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">No VMs on this host.</div>'}</div>`});
+    const sw=Object.entries(S.switches[HOST]||{});
+    h+=`<div class="card"><h4>Virtual switches on LAB-HOST</h4>${sw.length?`<table class="t"><tbody>${sw.map(([n,s])=>`<tr><td><b>${esc(n)}</b></td><td>${s.type}</td><td class="mono">${s.type==='Internal'?(M(HOST).hostIps[n]||'no host IP'):''}</td></tr>`).join('')}${S.nat?`<tr><td><b>${esc(S.nat.name)}</b></td><td>NAT</td><td class="mono">${esc(S.nat.prefix)}</td></tr>`:''}</tbody></table>`:'<div class="empty">None yet.</div>'}</div>`;
+    v.innerHTML=h;
+  }else if(tab==='clu'){
+    const c=S.cluster;
+    if(!c){v.innerHTML=`<div class="card"><h4>Failover cluster</h4><div class="empty">No cluster yet. Phase 7 creates HVCLU01 from HV01 and HV02.${Object.keys(S.iscsi.targets).length?' Shared storage is being prepared.':''}</div></div>`+storageCard();return}
+    const nodes=Object.entries(c.nodes).map(([n,x])=>`<tr><td><b>${n}</b></td><td><span class="pill ${x.state==='Up'?'p-ok':x.state==='Paused'?'p-warn':'p-bad'}">${x.state}</span></td><td class="mono">${fmtBytes(usedMem(n))} / ${fmtBytes(capMem(n))}</td></tr>`).join('');
+    const groups=Object.entries(c.groups).map(([n,g])=>`<tr><td><b>${esc(n)}</b></td><td>${g.type==='VirtualMachine'?'VM':g.type==='VMReplicaBroker'?'Replica Broker':'Client access point'}</td><td>${g.owner}</td><td><span class="pill ${g.state==='Online'?'p-ok':g.state==='Failed'?'p-bad':'p-idle'}">${g.state}</span></td></tr>`).join('');
+    const disks=c.disks.map(d=>`<tr><td><b>${d.name}</b></td><td class="mono">${fmtBytes(d.size)}</td><td>${d.csv?'CSV '+d.csv.replace('C:\\ClusterStorage\\',''):d.group==='Cluster Group'?'Witness':'Available'}</td><td><span class="pill ${diskOnline(d)?'p-ok':'p-bad'}">${diskOnline(d)?'Online':'Failed'}</span>${d.csv&&upNodes().some(n=>!lunsSeenBy(n).includes(d.lun))?' <span class="pill p-warn">redirected</span>':''}</td></tr>`).join('');
+    const nets=c.networks.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td class="mono">${x.address}</td><td>${x.role===3?'Cluster and client':x.role===1?'Cluster only':'None'}</td></tr>`).join('');
+    v.innerHTML=`<div class="card"><h4>${c.name} <small>${c.ip} · quorum ${c.quorum.type==='NodeMajority'?'<b style="color:var(--bad)">no witness</b>':esc(c.quorum.type)}</small></h4><table class="t"><thead><tr><th>Node</th><th>State</th><th>Memory</th></tr></thead><tbody>${nodes}</tbody></table></div>
+    <div class="card"><h4>Roles</h4>${groups?`<table class="t"><tbody>${groups}</tbody></table>`:'<div class="empty">No clustered roles yet.</div>'}</div>
+    <div class="card"><h4>Disks</h4>${disks?`<table class="t"><tbody>${disks}</tbody></table>`:'<div class="empty">No disks added. Get-ClusterAvailableDisk | Add-ClusterDisk</div>'}</div>
+    <div class="card"><h4>Networks</h4><table class="t"><tbody>${nets}</tbody></table></div>`+storageCard();
+  }else if(tab==='net'){v.innerHTML=topoSVG()}
+  else if(tab==='inc'){
+    v.innerHTML=`<p style="margin:0;font-size:12.5px;color:var(--muted)">Each ticket breaks something real in your environment. Diagnose it from the console with Get- cmdlets, fix it, and the ticket closes on its own. Tickets unlock as you build the parts they affect.</p>`+INCIDENTS.map(i=>{const st=S.incidents[i.id];const can=i.needs();return `<div class="inc ${st||''}"><div style="display:flex;justify-content:space-between;gap:8px"><span class="tk">${i.ticket} · ${i.sev}</span>${st==='solved'?'<span class="pill p-ok">Resolved</span>':st==='active'?'<span class="pill p-warn">Open</span>':''}</div><b>${esc(i.title)}</b>${st?`<span>${esc(i.report)}</span>`:''}${st==='active'?`<details><summary style="cursor:pointer;color:var(--accent);font-weight:600">Hint</summary><span>${esc(i.hint)}</span></details><details><summary style="cursor:pointer;color:var(--accent);font-weight:600">Answer</summary><span class="mono">${esc(i.answer)}</span></details>`:''}<div class="row" style="margin:0">${!st?`<button data-inc="${i.id}" ${can?'':'disabled'}>${can?'Open ticket':'Locked until you build this part'}</button>`:st==='solved'?`<button data-inc="${i.id}" class="ghost">Run again</button>`:''}</div></div>`}).join('');
+    v.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{const i=INCIDENTS.find(x=>x.id===b.dataset.inc);i.brk();S.incidents[i.id]='active';ev('ServiceDesk',i.ticket,1,`New ticket ${i.ticket}: ${i.title}`);print(`\nNew ticket ${i.ticket} (${i.sev}): ${i.report}\n`,'w');save();refresh()});
+  }else{
+    v.innerHTML=S.events.length?`<div class="card">${S.events.map(e=>`<div class="ev"><span class="pill ${e.level===2?'p-bad':e.level===1?'p-warn':'p-idle'}">${e.level===2?'Error':e.level===1?'Warning':'Info'}</span><span><span class="src">${esc(e.t)} · ${esc(e.src)} · ${esc(e.id)}</span><br>${esc(e.msg)}</span></div>`).join('')}</div>`:'<div class="empty">No events yet.</div>';
+  }
+}
+function storageCard(){const ts=Object.values(S.iscsi.targets);if(!ts.length)return '';return `<div class="card"><h4>iSCSI SAN (STOR01)</h4><table class="t"><tbody>${ts.map(t=>`<tr><td><b>${esc(t.name)}</b><br><span class="mono">${esc(t.ids.join(', ')||'no initiators')}</span></td><td>${t.luns.length} LUN(s)<br>${t.luns.map(l=>fmtBytes(S.iscsi.vdisks[lc(l)].size)).join(' + ')}</td><td>${connectedNodes(t).map(n=>`<span class="pill p-ok">${n}</span>`).join(' ')||'<span class="pill p-idle">none</span>'}</td></tr>`).join('')}</tbody></table></div>`}
+function topoSVG(){
+  const W=340,sw=S.switches[HOST]||{};const nets=[['HVLAB-Mgmt','#0b62c4',70],['HVLAB-Storage','#b7791f',300],['HVLAB-Cluster','#7c3aed',360]];
+  const vms=vmList(HOST).filter(v=>!v.replicaOf);const cols=Math.max(1,vms.length);const gap=Math.min(68,(W-20)/cols);
+  let g=`<svg class="topo" viewBox="0 0 ${W} 400" role="img" aria-label="Live network topology"><rect x="0" y="0" width="${W}" height="400" fill="var(--panel)"/>`;
+  g+=`<rect x="10" y="8" width="${W-20}" height="34" rx="7" fill="var(--panel-2)" stroke="var(--line)"/><text x="20" y="30" font-size="12" font-weight="600" fill="var(--fg)">LAB-HOST</text><text x="${W-20}" y="30" font-size="10.5" text-anchor="end" fill="var(--muted)">${S.nat?'NAT → Internet':'no NAT'}${M(HOST).hostIps['HVLAB-Mgmt']?' · 10.10.0.1':''}</text>`;
+  nets.forEach(([n,c,y])=>{const on=!!sw[n];g+=`<line x1="10" x2="${W-10}" y1="${y}" y2="${y}" stroke="${on?c:'var(--line)'}" stroke-width="${on?4:2}" stroke-dasharray="${on?'':'5 4'}" stroke-linecap="round"/><text x="12" y="${y-7}" font-size="10.5" font-weight="600" fill="${on?c:'var(--muted)'}">${n}${on?' · '+sw[n].type:' (not created)'}</text>`});
+  if(sw['HVLAB-Mgmt']&&M(HOST).hostIps['HVLAB-Mgmt'])g+=`<line x1="40" x2="40" y1="42" y2="70" stroke="#0b62c4" stroke-width="2"/>`;
+  vms.forEach((v,i)=>{const x=10+gap*i+gap/2,y=170,w=Math.min(60,gap-6);const up=v.state==='Running'&&(v.booted||!hasOS(v));
+    v.nics.forEach(a=>{const net=nets.find(n=>n[0]===a.switch);if(!net)return;const m=S.machines[v.name];const off=m&&m.nicOff[ROLE_OF[a.switch]];g+=`<line x1="${x}" x2="${x}" y1="${net[2]}" y2="${net[2]<y?y-22:y+22}" stroke="${a.vlan||off?'var(--bad)':net[1]}" stroke-width="2" ${a.vlan||off?'stroke-dasharray="3 3"':''}/>`;if(a.vlan)g+=`<text x="${x+4}" y="${(net[2]+y)/2}" font-size="9.5" fill="var(--bad)">VLAN ${a.vlan}</text>`});
+    g+=`<rect x="${x-w/2}" y="${y-22}" width="${w}" height="44" rx="7" fill="var(--panel)" stroke="${up?'var(--ok)':'var(--line)'}" stroke-width="${up?2:1}"/><text x="${x}" y="${y-3}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--fg)">${esc(v.name.slice(0,8))}</text><text x="${x}" y="${y+12}" text-anchor="middle" font-size="9.5" fill="var(--muted)">${PLAN[v.name]&&v.booted?PLAN[v.name].Mgmt.replace('10.10.',''):v.state}</text>`});
+  if(!vms.length)g+=`<text x="${W/2}" y="175" text-anchor="middle" font-size="12" fill="var(--muted)">VMs appear here as you create them</text>`;
+  if(S.cluster)g+=`<text x="${W/2}" y="250" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ok)">${S.cluster.name} · ${S.cluster.ip} · ${upNodes().length}/${Object.keys(S.cluster.nodes).length} nodes up</text>`;
+  g+='</svg>';
+  return `<div class="card"><h4>Live topology <small>solid = created, dashed red = VLAN or disabled NIC</small></h4>${g}</div>`;
+}
+function refresh(){renderRunbook();renderDetail();renderView();updatePrompt();save()}
+let tt;function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('show'),2600)}
+
+/* ============================================================
+   Console input, history, tab completion
+   ============================================================ */
+const hist=[];let hi=0;
+$('form').addEventListener('submit',e=>{e.preventDefault();const v=$('cmd').value;if(!v.trim())return;hist.push(v);hi=hist.length;$('cmd').value='';run(v)});
+$('cmd').addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp'){if(hi>0){hi--;$('cmd').value=hist[hi]}e.preventDefault()}
+  else if(e.key==='ArrowDown'){if(hi<hist.length-1){hi++;$('cmd').value=hist[hi]}else{hi=hist.length;$('cmd').value=''}e.preventDefault()}
+  else if(e.key==='Tab'){const val=$('cmd').value;const m=val.match(/(^|\|\s*)([\w-]+)$/);if(m){const cand=[...new Set(Object.values(C).map(c=>c.name))].filter(n=>lc(n).startsWith(lc(m[2]))&&modAvailable(C[lc(n)].mod,ctxM())).sort();if(cand.length){$('cmd').value=val.slice(0,val.length-m[2].length)+cand[0];if(cand.length>1)toast(cand.slice(0,6).join('  '))}}e.preventDefault()}
+});
+$('clearBtn').onclick=()=>{out.innerHTML='';S.log=[];save()};
+$('fastBtn').onclick=()=>{fast=!fast;$('fastBtn').textContent='Fast mode: '+(fast?'on':'off');$('fastBtn').setAttribute('aria-pressed',fast)};
+$('resetBtn').onclick=()=>{$('resetWrap').innerHTML='<span class="confirm">Erase all progress? <button id="yesReset" class="danger">Reset</button><button id="noReset" class="ghost">Cancel</button></span>';$('yesReset').onclick=()=>{S=fresh();out.innerHTML='';welcome();restoreReset();refresh()};$('noReset').onclick=restoreReset};
+function restoreReset(){$('resetWrap').innerHTML='<button id="resetBtn" class="ghost danger">Reset lab</button>';$('resetBtn').onclick=$('resetBtn').onclick||null;bindReset()}
+function bindReset(){$('resetBtn').onclick=()=>{$('resetWrap').innerHTML='<span class="confirm">Erase all progress? <button id="yesReset" class="danger">Reset</button><button id="noReset" class="ghost">Cancel</button></span>';$('yesReset').onclick=()=>{S=fresh();out.innerHTML='';welcome();restoreReset();refresh()};$('noReset').onclick=restoreReset}}
+bindReset();
+
+function welcome(){
+  print('Windows PowerShell\nCopyright (C) Microsoft Corporation. All rights reserved.\n','d');
+  print('HVLAB Simulator: you are the administrator of LAB-HOST, a fresh Windows Server 2025 machine with 64 GB of RAM.','a');
+  print('Your job: follow the runbook on the left to build a production-style Hyper-V environment, with a domain, a SAN, a two-node failover cluster and a DR site, then handle the incident tickets.\n','a');
+  print('How it works\n  • Type real PowerShell here. Commands are checked against the state of your environment, so mistakes fail the way they would on real servers.\n  • Click a task for the why, a hint and the solution. Click any solution line to paste it, or let the simulator run it.\n  • Enter-PSSession -VMName <VM> connects to a VM; Exit-PSSession returns to the host.\n  • Golden images: C:\\Images\\WS2025-Core.vhdx and C:\\Images\\WS2025-Desktop.vhdx (generalized, with an answer file that names NICs after their switch and assigns the planned IPs).\n  • Type "help" for the supported cmdlets. Progress is saved in this browser.\n','d');
+}
+if(S.log&&S.log.length){S.log.forEach(([t,c])=>{const d=document.createElement('div');if(c)d.className=c;d.textContent=t;out.appendChild(d)});out.scrollTop=out.scrollHeight}else welcome();
+// after reload no boot timers are pending: settle transient states
+Object.values(S.vms).forEach(v=>{if(v.state==='Running'&&hasOS(v)&&!v.booted){v.booted=true;ensureGuest(v)}});
+// sessions don't survive a reload
+if(S.ctx!==HOST&&!machineUp(S.ctx))S.ctx=HOST;
+checkTasks();refresh();
+window.__sim={run,S:()=>S,ALLT,runSolution,taskDone,setFast:v=>{fast=v}};
+</script>
